@@ -1,0 +1,81 @@
+---
+title: "Color theory"
+output:
+  github_document:
+    toc: true
+  html_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## HCL color space
+
+HCL colour space has three components of hue, chroma and luminance,
+and used to describe the color space in a uniform and continuous
+way.
+
+
+- **Hue** ranges from 0 to 360 (an angle) and gives the “colour” of the colour (blue, red, orange, etc).
+    
+- **Chroma** is the “purity” of a colour, ranging from 0 (grey) to a maximum that varies with luminance.
+    
+- **Luminance** is the lightness of the colour, ranging from 0 (black) to 1 (white).
+
+
+## Color blindness check
+
+Avoid red-green contrast to help color blindness. One can
+use [Visicheck](https://www.vischeck.com/) or R package
+[dichromat](https://cran.r-project.org/web/packages/dichromat/)
+to simulate color blindness.
+
+## ggplot2 builtin color scales
+
+All the following functions use the scale 'fill', but the 'color'
+and 'shape' scales also have corresponding functions.
+
+1. scale_fill_viridis_c(): designed for uniform color as well
+  as color blindness friendly.
+  
+2. scale_fill_distiller(): color scales derived from R ColorBrewer
+  for continuous variables.
+
+3. scale_fill_fermenter(): color scales derived from R ColorBrewer
+  scales for binned data.
+  
+4. scale_fill_brewer(): color scales derived from R ColorBrewer
+  scales for discrete variables.
+  
+5. scale_fill_gradient(): produce two-color gradient. 
+  scale_fill_gradient2() and scale_fill_gradientn() are for
+  3- or more- color gradient.
+  
+6. scale_fill_hue(): get the colors based on HCL colorspace,
+  one can use the parameters 'h', 'c', and 'l' to specify
+  the values of hue, chroma and luminance.
+  
+7. scale_fill_grey(): used to get color scheme in grey scale,
+  good for printing in black and white.
+  
+8. scale_fill_binned(): create color scheme for binned data
+  (split continuous data into bins), and the parameter `n.breaks`
+  determine how many bins to create, and good for displaying
+  continuous data if edges are preferred.
+  
+9. scale_fill_steps(): the default for scale_fill_binned(), and
+  it is analogous to scale_fill_gradient(), so it has versions
+  of scale_fill_steps2() and scale_fill_stepsn().
+  
+10. scale_alpha_continuous(): map the transparency of shade to
+  a data variable.
+
+There are so many palettees in R, and the package paletteer
+provides a common interface to all of them.
+
+
+## References
+
+1. Color setting in ggplot2: https://ggplot2-book.org/scale-colour.html
