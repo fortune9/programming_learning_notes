@@ -1,0 +1,152 @@
+---
+title: "R graphics"
+author: "Zhenguo Zhang"
+date: "`r format(Sys.time(), '%b %d, %Y')`"
+output:
+  github_document:
+    toc: true
+  html_document:
+    toc: true
+---
+
+## Fonts
+
+### Functions
+
+Function | Example | Description
+--- | --- | ---
+quantzFonts | quartzFonts(avenir = c(“Avenir Book”, “Avenir Black”, “Avenir Book Oblique”, “Avenir Black Oblique”)) | convert system fonts to quantz fonts for use in R as families.
+
+
+### Packages
+
+- extrafont: import system fonts into R, https://r-coder.com/custom-fonts-r/
+- ggVennDiagram: plot venn diagram based on the ggplot2
+
+## Element size
+
+### Functions
+
+Function | Example | Description
+--- | --- | ---
+strwidth | strwidth("how wide", units="inches", cex=1, font=1, family="sans") | get the width of a string in current plotting device. `units` can be 'figure' so that the coordinates are normalized to the [0,1] range.
+strheight | strheight("how high", units="inches", cex=1, font=1, family="sans") | get the height of a string in current plotting device.
+
+### Discussion of *strwidth()* and *strheight()*
+
+The two functions *strwidth()* and *strheight()* can measure the
+width and height of a string. In default, the used font size is
+9.75. So to get the size for other font size, one need to use the
+parameter *cex*.
+
+Also, the functions have 3 choices for the parameter *units*, which
+have the following meaning:
+
+* user: the default, using the plot's coordinate system to give the
+  width and height, only available if plot.new() has been called.
+  
+* inches: give the width and height using inch as units.
+
+* figure: give the width and height as fractions of figure size, so
+  between 0 and 1.
+  
+
+As an example, we show the size of the letter **A** in the following
+plot.
+
+```{r}
+plot(NULL,xlim=c(0,10), ylim=c(0,10))
+aw<-strwidth("A")
+ah<-strheight("A")
+# draw the character to show the width
+text(2,5,"A", pos=4, offset=0)
+abline(v=c(2,2+aw), col="red", lty="dashed")
+# similarly, show the height
+text(5,2,"A",pos=3,offset=0)
+abline(h=c(2,2+ah), col="blue", lty="dashed")
+# let's try a letter with cex=2
+aw<-strwidth("A", cex=2)
+ah<-strheight("A", cex=2)
+text(4,8,"A", pos=4, offset=0, cex=2)
+abline(v=c(4,4+aw), col="red", lty="dashed")
+text(8,4,"A", pos=3, offset=0, cex=2)
+abline(h=c(4,4+ah), col="red", lty="dashed")
+```
+
+One can convert the measurements from the 3 different units. Before
+we start, we need to introduce several important graphic parameters:
+
+* fin: a vector of (width, height), which provides the figure size
+  in inches. These values depend on the graphic device being used,
+  so if one expands/shrinks the device, the values will change in the
+  same direction.
+  
+* plt: A vector of the form c(x1, x2, y1, y2) giving the coordinates
+  of the plot region as fractions of the current figure region, so these
+  values are between 0 and 1.
+
+* pin: a vector of (width, height), which provides the plot region
+  size in inches.
+  
+* usr: a vector of the form c(x1, x2, y1, y2) giving the extremes of
+  the user coordinates of the plotting region, i.e., the values at
+  the ends of axes.
+  
+One can see `par()` for more information on these parameters. In the following
+code, we will show how to convert the values of different units, using
+width as an example.
+  
+```{r}
+plot(NULL,xlim=c(0,10), ylim=c(0,10))
+aw<-strwidth("A")
+aw.i<-strwidth("A", units="inch")
+aw.f<-strwidth("A", units="figure")
+fin<-par("fin")
+# conversion between inch and figure
+all.equal(aw.i/fin[1], aw.f)
+# convert between user and inch
+xylims<-par("usr")
+pltSize<-par("pin")
+xrange<-xylims[2]-xylims[1]
+all.equal(aw/xrange*pltSize[1], aw.i)
+# convert between user and figure
+all.equal(aw/xrange*pltSize[1]/fin[1], aw.f)
+```
+
+## Combine and arrange plots
+
+packages: 
+
+- patchwork: to reduce the space between plots, one can add an empty space via plot_spacer() and then
+    set the spacer's width/height to a negative value in plot_layout().
+    To modify the themes of all the plots, one can use the operator '&' instead of '+' (which only
+    modifies the last plot), and the operator '*' only affects subplots in current nesting level.
+- egg, 
+- cowplot: this package separates the alignment and arrangement steps, making it more flexible in aligning
+    different elements of plots, such as axis, titles, plots, etc; otherwise, it has similar functions as
+    patchwork. To adjust space between plots, one can add an empty plot in between, and then adjust the
+    options `rel_widths` and `rel_heights` in the function plot_grid(); the values can be set to negative
+    to shrink the spaces.
+- plotly::subplot(): used to combine plotly objects. examples are here https://plotly-r.com/arranging-views.html.
+    To adjust the spaces between subplots, one can use the parameter `margin`, which will be applied to
+    each subplot.
+- ggiraph: function girafe() can be used to combine plots. It essentially combines the ggplot objects.
+
+
+## Interactive plot
+
+packages: 
+
+- plotly, 
+- ggiraph: it can convert nearly all ggplot elements (geoms, legends, scales, guides, etc) into interactive.
+    see [here](https://davidgohel.github.io/ggiraph/articles/offcran/using_ggiraph.html) for examples.
+- autoplotly: generate interactive plots on results supported by ggfortify, implemented with plotly.js and ggplot2.
+
+
+## Figure format
+
+### Converter packages
+
+ggplotify: convert different graphics into grobs.
+
+
