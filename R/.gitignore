@@ -1,0 +1,34 @@
+# R project-specific ignores
+*.Rproj.user/
+*.Rhistory
+*.RData
+*.Rproj
+.Rproj.user/
+.Rhistory
+.RData
+
+# Ignore packages installed via devtools
+/dev/
+
+# Ignore generated files
+man/*
+docs/*
+vignettes/*
+*.Rcheck/
+.Rd2pdf*
+.Rd2txt*
+.Rd2html*
+
+# Ignore backup files
+*~
+*.swp
+*.bak
+*.orig
+
+# Ignore data files
+data/*.csv
+data/*.tsv
+data/*.txt
+data/*.xls
+data/*.xlsx
+data/*.rds
