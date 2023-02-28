@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -e
+
+# This script renders RMarkdown files before committing them
+
+if [[ $(uname) == "Linux" ]]; then
+    exe=/mnt/d/Tools/R/R-4.2.0/bin/x64/Rscript.exe
+else
+    exe='D:/Tools/R/R-4.2.0/bin/x64/Rscript.exe'
+fi
+
+#echo $exe
+
+# Define the file types to be checked
+file_types=(Rmd)
+
+# Loop through the staged files
+for file_type in "${file_types[@]}"; do
+    for file_name in $(git diff --cached --name-only --diff-filter=ACMR "*.$file_type"); do
+        # Check if the file has been modified
+        if [ -f "$file_name" ]; then
+            # Render the RMarkdown file
+            $exe -e "rmarkdown::render('$file_name')" || exit 2
+            # Add the rendered file to the staging area
+            git add "${file_name%.$file_type}.md"
+		else
+			echo "File $file_name doesn't exist"
+			exit 1
+        fi
+    done
+done
+
+# Exit with success
+exit 0
