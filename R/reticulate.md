@@ -189,11 +189,11 @@ df.head()
 ```
 
     >           x  g
-    > 0  0.234222  a
-    > 1  0.220187  b
-    > 2  0.497564  c
-    > 3  0.825291  a
-    > 4  0.991769  b
+    > 0  0.599330  a
+    > 1  0.087873  b
+    > 2  0.515975  c
+    > 3  0.325222  a
+    > 4  0.893407  b
 
 Now, let’s read this data frame into R
 
@@ -209,12 +209,12 @@ summary(dat)
 ```
 
     >        x                g            
-    >  Min.   :0.01984   Length:30         
-    >  1st Qu.:0.24509   Class :character  
-    >  Median :0.56094   Mode  :character  
-    >  Mean   :0.54046                     
-    >  3rd Qu.:0.82279                     
-    >  Max.   :0.99177
+    >  Min.   :0.08787   Length:30         
+    >  1st Qu.:0.33584   Class :character  
+    >  Median :0.65150   Mode  :character  
+    >  Mean   :0.56746                     
+    >  3rd Qu.:0.77795                     
+    >  Max.   :0.93765
 
 ``` r
 library(ggplot2)
