@@ -1,0 +1,27 @@
+---
+title: "Software versioning"
+author: "Zhenguo Zhang"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+    fig_width: 7
+    fig_height: 5
+always_allow_html: true
+---
+
+## Summary
+
+A version number may be in the format `MAJOR.MINOR.PATCH`, and each part
+increases with the following principles:
+
+* MAJOR version: when you make incompatible API changes.
+* MINOR version: when you add functionality in a backwards compatible manner.
+* PATCH version: when you make backwards compatible bug fixes.
+
+One can extend the MAJOR.MINOR.PATCH format to add pre-release or meta information.
+
+
+## References
+
+1. Semantic Versioning: https://semver.org/

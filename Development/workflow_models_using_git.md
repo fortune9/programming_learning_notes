@@ -1,0 +1,147 @@
+Workflow models using git
+================
+Zhenguo Zhang
+July 10, 2023
+
+-   [Git flow development model](#git-flow-development-model)
+-   [Github flow development model](#github-flow-development-model)
+-   [References](#references)
+
+When developing software in a collaborative environment, there are two
+main models to follow: git-flow and github-flow. The former is good for
+the development supporting multiple versions of software and the latter
+is nice for the situations of always using the latest version of
+software, such as web apps.
+
+Below is a summary of the two models.
+
+## Git flow development model
+
+There are two main branches with an infinite lifetime:
+
+-   master: the production branch.
+-   develop: the development branch to add new features and merged into
+    master branch when a new release is ready.
+
+Three types of supporting branches with limited lifetime:
+
+-   feature: add new features, checked out from and merged back into
+    *develop* branch. Nomenclature: anything except master, develop,
+    release-*, or hotfix-*.
+-   release: prepare for a new release, checked out from *develop*
+    branch, and merged into master branch. Nomenclature: release-\*.
+    Allow for minor bug fixes and preparing meta-data for a release
+    (version number, build dates, etc.)
+-   hotfix: fix bugs in the master branch, and merged back to master and
+    develop branches. Nomenclature: hotfix-\*.
+
+The development process:
+
+1.  create a *develop* branch, which will hold all feature development
+    and is the base for future releases.
+
+2.  create a *feature* branch to develop new features, like
+
+        git checkout -b new-feature develop
+
+3.  merge the new feature back to the *develop* branch after finishing
+    it.
+
+    ``` git
+    git checkout develop
+    # use --no-ff option to group all commits in the new-feature branch
+    # into one commit and merge it into develop branch, making the revert easier.    
+    git merge --no-ff new-feature
+    git branch -d new-feature
+    git push origin develop
+    ```
+
+4.  Repeat step 2 and 3 to add more new features.
+
+5.  Create a release from the *develop* branch when ready. All features
+    to be released must be merged into *develop* before branch-off, and
+    all future features must wait until the release branch is branched
+    off. The release number can bump up based on the amoutn of changes.
+
+    ``` git
+    # assume current production version 1.1.6, and the new release added many features
+    git checkout -b release-1.3.0 develop
+    # change related files containing version numbers, manually or using a script
+    # commit the changes
+    git commit -a -m "Bumped version to 1.3.0"
+    ```
+
+    This release branch may exist there for a while untile merged into
+    production branch. During this time, bugs can be applied to this
+    branch but new features are prohibited and should be added in
+    *develop* for next release.
+
+6.  Finish a release branch. In this step, the release branch is merged
+    into *master* branch and tagged with the new version, and all bug
+    fixes are merged into the *develop* branch too.
+
+    ``` git
+    git checkout master
+    git merge --no-ff release-1.3.0
+    git tag -a 1.3.0
+    # merge bug fixes to develop
+    git checkout develop
+    # handle potential merge conflict
+    git merge --no-ff release-1.3.0
+    git branch -d release-1.3.0
+    ```
+
+7.  Fix bugs from *master* branch. This is called hotfix. This behaves
+    like release branch, but for unplanned bugs in the production
+    branch. This allows one team to fix the bugs and the develop team to
+    focus on new feature development.
+
+    ``` git
+    # assume production version is 1.3.0
+    git checkout -b hotfix-1.3.1 master
+    # update version numbers in related files to 1.3.1
+    git commit -a -m "bumped version to 1.3.1"
+    # fix bugs and commit
+    git commit -m "Fixed bugs in production branch"
+    # Finish the fix, merging to master and develop
+    git checkout master
+    git merge --no-ff hotfix-1.3.1
+    git tag -a 1.3.1
+    git push origin master
+    git checkout develop
+    git merge --no-ff hotfix-1.3.1
+    git branch -d hotfix-1.3.1
+    ```
+
+## Github flow development model
+
+The development process following github flow model consists of the
+following steps:
+
+1.  create a new branch: use a name to indicate what changes are being
+    made
+2.  make changes: make changes in the new branch, try to have each
+    commit contain an isolated complete change so that revert can be
+    easy when in case.
+3.  create a pull request: include a summary of changes and link to
+    related issues. Keywords can be used to close issues automatically
+    when the pull request is merged to the default branch.
+4.  address review comments: resolve reviewers comments, and continue
+    commit and push to the same branch, and these commits will be added
+    to the pull request automatically.
+5.  merge pull request: when things look good, the pull request can be
+    merged into the default branch. In default, pull requests are merged
+    using `--no-ff` option, except for pull requests with squashed or
+    rebased commits.
+6.  delete the merged branch: the deleted branch can be always restored
+    if necessary because the commit history is stored. see [delete and
+    restore branches in a pull
+    request](https://docs.github.com/en/github/administering-a-repository/deleting-and-restoring-branches-in-a-pull-request).
+
+## References
+
+1.  git-flow model:
+    <https://nvie.com/posts/a-successful-git-branching-model/>
+
+2.  github-flow model:
+    <https://docs.github.com/en/get-started/quickstart/github-flow>

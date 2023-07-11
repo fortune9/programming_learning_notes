@@ -1,0 +1,929 @@
+Git actions notes
+================
+Zhenguo Zhang
+July 10, 2023
+
+-   [Introduction](#introduction)
+-   [Git actions architecture](#git-actions-architecture)
+-   [Concepts](#concepts)
+    -   [Workflow](#workflow)
+    -   [Events](#events)
+    -   [Job](#job)
+    -   [Step](#step)
+    -   [Action](#action)
+    -   [Artifacts](#artifacts)
+    -   [Runner](#runner)
+-   [Syntax](#syntax)
+    -   [Triggers](#triggers)
+    -   [Filter pattern](#filter-pattern)
+    -   [Environment variables](#environment-variables)
+    -   [Expressions](#expressions)
+    -   [Contexts](#contexts)
+    -   [Options](#options)
+    -   [Workflow commands](#workflow-commands)
+-   [Tricks](#tricks)
+-   [Create custom github actions](#create-custom-github-actions)
+    -   [Metadata file action.yml](#metadata-file-actionyml)
+    -   [Create docker actions](#create-docker-actions)
+-   [Github settings](#github-settings)
+    -   [Notifications](#notifications)
+-   [Caveats](#caveats)
+    -   [Trigger manually](#trigger-manually)
+-   [Fees](#fees)
+-   [References](#references)
+
+## Introduction
+
+Git actions is a free service for one to run some shell commands against
+the code in a github repo, triggered by an event, such as commit, PR
+request, release, etc.
+
+## Git actions architecture
+
+Github action workflows are in YAML format and are stored in the folder
+.github/workflows. It has the following syntax structure.
+
+``` yaml
+name: Action name
+
+on: # triggers
+    push:
+    pull_request:
+        types: [opened, reopened]
+    schedule:
+        - cron: '0 0 * * *' # every day midnight, min hours day mon weekday
+    branches:
+        - master # job only runs on master branch
+
+jobs: # list of jobs
+    job-name-1:
+        runs-on: ubuntu-latest # choose runner
+        steps: # steps in the job
+            - name: step name 1
+              id: job-id-1
+              run: echo "This is step 1, job 1"
+            - name: step name 2
+              run: echo "This is step 2, job 1"
+    job-name-2:
+        runs-on: ubuntu-latest # choose runner
+        steps: # steps in the job
+            - name: step name 1
+              run: echo "This is step 1, job 2"
+            - name: step name 2
+              run: echo "This is step 2, job 2"
+```
+
+As you can see, a git actions workflow includes jobs, each of which then
+include steps, and each step is composed of actions and commands.
+
+Each job is run in its own virtual machine runner or container, in
+sequential order or parallel. And each step in a job can be user script
+or action (a reusable extension).
+
+One can find more details of workflow syntax at
+[here](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions).
+
+## Concepts
+
+### Workflow
+
+A workflow can contain one or jobs, and each job consists of steps (a
+mixture of shell commands and external actions). Jobs are triggered by
+specified events. Each workflow is saved in a separate YAML file under
+the folder `.github/workflows`, like `.github/workflows/main.yml`.
+Multiple workflows in one project are allowed.
+
+Some example workflows can be found
+[here](https://github.com/actions/starter-workflows), and one can use
+those as starters.
+
+### Events
+
+Events are the ones that trigger workflows. All the events are found
+[here](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows).
+
+Common events are listed in the following table:
+
+| Event         | Description                                                                                                                                                                                                                                                                                                    |
+|---------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| push          | triggered when push happens. To limit affected branches, use ‘branches’ filter: to exclude branches, use `branches-ignore`. One can use `tags`, `tags-ignore` to filter repo tags, similarly `paths` and `paths-ignore` for filtering files. One can also use ‘!pattern’ to exclude branches, tags, and paths. |
+| pull\_request | triggered when pull request happens. Similarly, it also has many event types and filters to limit when a workflow is triggered.                                                                                                                                                                                |
+
+### Job
+
+A job is what it actually executes, and one can see the history of a
+single job. It consists of multiple steps and **runs in an independent
+virtual environment**. Jobs can run independently of each other or
+sequential if the current job depends on the previous job to be
+successful (chained with the keyword `needs`).
+
+### Step
+
+Steps are the components of a job, and steps are run in order and
+dependent on each others. Since in the same runner, steps can share data
+among them, such as via environment variables or files.
+
+In each step, one can use the keyword
+[with](https://docs.github.com/en/github-ae@latest/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswith)
+to provide parameters for the action. These parameters are usually
+defined by the action (but may not be required). As an example:
+
+    jobs:
+        test_job:
+            steps:
+                - name: provide parameters
+                  uses: actions/test_action
+                  with:
+                    x: 100
+                    y: 1000
+                    s: ${{ env.hello }} # must use context when specifying inputs
+
+These parameters, in addition to transferred to the action, are also
+converted to environment variable automatically by github actions. So in
+the above step, 3 environment variables are generated: `INPUT_X`,
+`INPUT_Y`, and `INPUT_S`.
+
+Related to the *with* keyword, for a docker action, one can also use
+*with.args* to provide a single string (array of strings is not
+supported) to entrypoint executable as input.
+
+Also note that when one uses environment variables for the parameters,
+they must be in the context format `${{ ... }}`.
+
+### Action
+
+An action is a packaged, reusable building blocks which you can combine
+into steps to create a job.
+
+Use the keyword `uses` to trigger actions and `with` to provide
+parameters if necessary.
+
+Actions are available in the Actions “marketplace” and published by the
+community and accepted by GH if it meets standards. There are a
+collection of actions at [here](https://github.com/marketplace).
+
+One can write his own actions too. An action is written in
+JavaScript/TypeScript or as a Dockerfile. Check
+[here](https://docs.github.com/en/actions/creating-actions) for how to
+create actions.
+
+#### Some useful actions:
+
+-   actions/checkout: clone and checkout the repo/commit triggered the
+    workflow. More details are
+    [here](https://github.com/actions/checkout#usage).
+
+-   docker/login-action: login into all kinds of docker registries, such
+    as Dockerhub, AWS ECR, etc.
+
+-   docker/metadata-action: construct meta info such as tags, labels
+    which can be used in building docker images with the action
+    *action/build-push-action*
+
+-   docker/build-push-action: build and push docker image with given
+    Dockerfile.
+
+### Artifacts
+
+Artifacts are files produced during workflow run, which can be used to
+share reults among jobs in the same workflow run (not different runs) or
+view the results later.
+
+One can use the actions
+[upload-artifact](https://github.com/actions/upload-artifact) and
+[download-artifact](https://github.com/actions/download-artifact) to
+upload and download artifacts in Github. Note that the download action
+can only accesses the artifacts uploaded in the same workflow run. After
+a workflow run is finished, one can still acess these artifacts on
+Github actions build summary page or using the REST API. By default,
+GitHub stores build logs and artifacts for 90 days.
+
+Compared to dependency caching, artifacts are more suitable for the
+cases that some files need be viewed after workflow run ends.
+
+### Runner
+
+A runner is a machine to run github actions. It can be hosted on Github
+or self-hosted servers. It runs each job, report the progress, and send
+results back to Github. The runners can be Linux, Windows, and MacOS.
+Due to different environments in these runners, one need to use the
+right shell in each runner.
+
+Each runner an run one job at a time.
+
+The settings of Github-hosted runners are found
+[here](https://docs.github.com/en/actions/using-github-hosted-runners/about-github-hosted-runners).
+
+## Syntax
+
+Elements of workflow files
+
+| Element            | Level    | Description                                                                                                                                                                                 |
+|--------------------|----------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| name               | workflow | workflow name, default is workflow filepath.                                                                                                                                                |
+| on                 | workflow | triggers of the workflow                                                                                                                                                                    |
+| schedule           | on       | set running times using cron format.                                                                                                                                                        |
+| workflow\_call     | on       | calling other workflows by defining inputs to and outputs from the called workflows. Check [reusing workflows](https://docs.github.com/en/actions/learn-github-actions/reusing-workflows)   |
+| workflow\_run      | on       | provide triggers based on other workflows status: the current workflow will only run when the describe workflows satisfied the requirements.                                                |
+| workflow\_dispatch | on       | let one to start a workflow manually; note this only works on main/default branch.                                                                                                          |
+| permissions        | workflow | limit the permissions granted by the *GITHUB\_TOKEN*, for all jobs. Check [here](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#permissions).        |
+| permissions        | job      | limit the permissions granted by the *GITHUB\_TOKEN*, for all steps in a job.                                                                                                               |
+| env                | workflow | set environment variables for all jobs                                                                                                                                                      |
+| env                | job      | set environment variables for all steps in a job                                                                                                                                            |
+| env                | step     | set environment variables for a specific step.                                                                                                                                              |
+| defaults           | workflow | set default settings for all jobs such as *shell* and *working-directory*.                                                                                                                  |
+| defaults           | job      | set default settings for all steps in a job such as *shell* and *working-directory*.                                                                                                        |
+| jobs               | workflow | define jobs in a workflow. The jobs are run in parallel, unless the keyword *needs* is used to declare the relations of jobs.                                                               |
+| if                 | job      | condition, if false, the job won’t run.                                                                                                                                                     |
+| runs-on            | job      | specify the runner for a job, including windows-*, ubuntu-*, and macos-\*.                                                                                                                  |
+| environment        | job      | specify the deployment environments for a job to run, such as staging, production. See [here](https://docs.github.com/en/actions/deployment/using-environments-for-deployment) for details. |
+| outputs            | job      | define outputs for a job                                                                                                                                                                    |
+
+### Triggers
+
+Workflow triggers can be events that occur in the repository, outside of
+github (i.e., respository\_dispatch event), on scheduled times, or
+manually.
+
+The process of a workflow triggering is as follows:
+
+1.  An event happens with an associated commit SHA and Git ref (branch,
+    tag, release, etc).
+
+2.  Search for workflows in the directory .github/workflows present in
+    the associated commit or Git ref.
+
+3.  In each workflow file, match the event with those listed after
+    `on:`, and if matched, then the workflow is triggered. It also set
+    two environment variables *GITHUB\_SHA* and *GITHUB\_REF* to refer
+    to the commit SHA and Git ref.
+
+A typical setup for triggers may look like this:
+
+``` git
+on:
+  label:
+    types:
+      - created
+  push:
+    branches:
+      - main
+  page_build:
+```
+
+In the above trigger, event activity types and filters are used to
+customize when the workflow is triggered. For the event types, one can
+check [this
+page](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows).
+
+Note that if multiple event types for an event are specified and
+satifified at the same time, then the workflow will run multiple times,
+too.
+
+A summary of common events:
+
+| Event                    | Activity types                                   | Description                                                                                                                                                                  |
+|--------------------------|--------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| branch\_protection\_rule | created, edited, deleted                         | triggered when branch protection rule is modified.                                                                                                                           |
+| create                   | n/a                                              | triggered when a branch or tag is created.                                                                                                                                   |
+| delete                   | n/a                                              | triggered when a branch or tag is deleted.                                                                                                                                   |
+| discussion               | created, locked, pinned, etc                     | triggered if a discussion in the repo is created/modified.                                                                                                                   |
+| discussion\_comment      | created, edited, deleted                         | triggered by comments in a discussion.                                                                                                                                       |
+| fork                     | n/a                                              | triggered by forking a repo.                                                                                                                                                 |
+| gollum                   | n/a                                              | triggered by changes in Wiki page.                                                                                                                                           |
+| issue\_comment           | created, edited, deleted                         | triggered by issue or pull request comment.                                                                                                                                  |
+| issues                   | many                                             | triggered by issue activities.                                                                                                                                               |
+| label                    | created, edited, deleted                         | triggered by label activities.                                                                                                                                               |
+| milestone                | created, edited, deleted, opened, closed         | triggered by [milestones](https://docs.github.com/en/issues/using-labels-and-milestones-to-track-work/about-milestones).                                                     |
+| page\_build              | n/a                                              | triggered when the branch of Github Pages is pushed against.                                                                                                                 |
+| public                   | n/a                                              | triggered when a repo changes from private to public.                                                                                                                        |
+| pull\_request            | assigned, edited, closed, review\_requested, etc | triggered by pull request activities.                                                                                                                                        |
+| push                     | n/a                                              | triggered when tags or branches are pushed.                                                                                                                                  |
+| registry\_package        | published, updated                               | triggered when activity related to Github Packages occur.                                                                                                                    |
+| release                  | created, published, deleted, released, etc       | triggered by release activity.                                                                                                                                               |
+| repository\_dispatch     | Customized by triggers                           | triggered via Github API or event happened outside Github.                                                                                                                   |
+| schedule                 | n/a                                              | triggered at scheduled times, on default branch only. see [here](https://docs.github.com/en/actions/using-workflows/events-that-trigger-workflows#schedule) for time format. |
+| status                   | n/a                                              | triggered when status of a commit changes, such as error, failure, pending, and success.                                                                                     |
+| watch                    | started                                          | triggered when the repository is starred.                                                                                                                                    |
+
+### Filter pattern
+
+One can use special characters in path, branch, and tag filters to match
+sets of items.
+
+The supported characters are put
+[here](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet).
+
+### Environment variables
+
+Github set default environment variables for each workflow run. One can
+create environment variables by using the keyword `env`. This key can be
+used at different levels: workflow, jobs, and steps, so accordingly, the
+variables can only accessible at corresponding levels. For example, an
+environment variable set at a previous step isn’t available for next
+step. To set the environment variables for the following steps on runner
+machines, one can use the file `$GITHUB_ENV`, like:
+
+``` bash
+echo "{environment_variable_name}={value}" >> $GITHUB_ENV
+```
+
+Alternatively, one can use the workflow commands to set output from a
+step and share it with other steps, like:
+
+``` git_actions
+    steps:
+      - name: Set selected color
+        run: echo '::set-output name=SELECTED_COLOR::green'
+        id: random-color-generator
+      - name: Get color
+        run: echo "The selected color is ${{ steps.random-color-generator.outputs.SELECTED_COLOR }}"
+```
+
+Because environment variable interpolation is done after a workflow job
+is sent to a runner machine, you must use the appropriate syntax for the
+shell that’s used on the runner. In Linux, one can use the form like
+`\$ENV`.
+
+Environment variables are always interpolated on the virtual machine
+runner. However, **parts of a workflow are processed by GitHub Actions
+and are not sent to the runner**. You cannot use environment variables
+in these parts of a workflow file. Instead, you can use contexts. For
+example, an `if` conditional, which determines whether a job or step is
+sent to the runner, is always processed by GitHub Actions. You can use a
+context in an if conditional statement to access the value of an
+environment variable, for example, one can use `${{ env.DAY_OF_WEEK }}`
+to access the environment variable.
+
+One can find all pre-defined environment variables
+[here](https://docs.github.com/en/actions/learn-github-actions/environment-variables).
+Some important variables:
+
+| Name                  | Description                                                                                                                                                                                            |
+|-----------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| GITHUB\_WORKFLOW      | the workflow name.                                                                                                                                                                                     |
+| GITHUB\_SHA           | the commit id that triggers the workflow.                                                                                                                                                              |
+| GITHUB\_REPOSITORY    | the repository path in the format `<username>/<repository>`                                                                                                                                            |
+| GITHUB\_WORKSPACE     | working dir for the job                                                                                                                                                                                |
+| github.token          | the authorization token, used for github REST API or as input for some actions.                                                                                                                        |
+| HOME                  | the home directory of the virtul machine, like /home/runner                                                                                                                                            |
+| GITHUB\_ACTION        |                                                                                                                                                                                                        |
+| GITHUB\_ACTOR         | the username                                                                                                                                                                                           |
+| GITHUB\_ACTIONS       | always true                                                                                                                                                                                            |
+| GITHUB\_EVENT\_NAME   | event name triggered the workflow, such as push.                                                                                                                                                       |
+| GITHUB\_REF           | the branch reference                                                                                                                                                                                   |
+| GITHUB\_PATH          | the file containing paths for the environment variable `$PATH` in each step, one path per line. One can write to this file to prepend new paths, which will be available for subsequent actions/steps. |
+| GITHUB\_ENV           | the file contained environment variables, one can write to this file in the format of `name=value` to set new environment variables.                                                                   |
+| GITHUB\_STEP\_SUMMARY | a file containing github action step summary. One can write to it to add new messages in the format of markdown.                                                                                       |
+
+### Expressions
+
+Expression is something in the format ‘${{ <expression> }}’. Here
+expression can be anything like string, function, calculation, contexts,
+etc. And these expressions are evaluated instead of treating as
+strings..
+
+In `if` conditional, the ‘${{ }}’ syntax can be omitted. One can
+construct a multiline condition using the following format:
+
+    if: |
+        github.event_name == 'push' ||
+        (github.event_name == 'pull_request' && github.event.pull_request.merged == true)
+
+More details about expression can be found at
+[here](https://docs.github.com/en/actions/learn-github-actions/expressions).
+
+Some useful functions
+
+| Function     | Description                                                                   |
+|--------------|-------------------------------------------------------------------------------|
+| always()     | always return true even when a job or step is cancelled.                      |
+| cancelled()  | return true of a workflow is cancelled.                                       |
+| failure()    | return true when any previous step of a job fails or any depended jobs fails. |
+| toJSON()     | convert an object to json-formatted string.                                   |
+| fromJSON()   | convert a json-formatted string into an object.                               |
+| join()       | concatenate the elements in an array and return a string.                     |
+| format()     | format a string by replacing the variables.                                   |
+| contain()    | test whether an array contains an element or a string has a substring.        |
+| startsWith() | test whether a string starts with a substring, not case sensitive.            |
+| endsWith()   | test whether a string ends with a substring, not case sensitive.              |
+
+#### Secrets
+
+One can set some variables in the Secrets section under github
+repository settings. And these encrypted variables can be accessed in
+the workflows via the object `Secrets`, which can be accessed in the
+format `${{ secrets.var_name }}`.
+
+One predefined variable is `secrets.GITHUB_TOKEN`, which contains the
+token of the github API.
+
+There is a limit on the size of github secrets, 64KB. To store bigger
+secrets, one can use encrypted files, which can be generated by the
+command `gpg`.
+
+### Contexts
+
+Contexts are the objects containing the properties of workflow runs,
+runner environments, jobs, and steps. One can access a context in the
+format `${{ <context> }}`.
+
+Compared environment variables, which are supposed to be used on
+runners, contexts are evaluated by github actions before sending the
+workflow to runners. For most of the environment variables, there are
+corresponding context values, such as `${{ env.DAY_OF_WEEK }}`
+vs. `$DAY_OF_WEEK`.
+
+Some common context objects are `github`, `env`, `job`, `steps`,
+`secrets`, `strategy`. One can find all the context at
+[here](https://docs.github.com/en/actions/learn-github-actions/contexts).
+
+### Options
+
+| Name            | Description                                                                                                                                                                                                           |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| needs           | require a step or job to finish successful before current job/step is triggered.                                                                                                                                      |
+| strategy/matrix | build strategy context to use in jobs, one can specify an array to a certain variable, so that multiple jobs with different values can run. use `fail-fast` to true/false to let the steps run if any of them failed. |
+| container       | allows one to use containers in a job or steps.                                                                                                                                                                       |
+| services        | allow to run multiple containers in one job as services, and steps can access these services. Note that the steps are run in the runner’s system, instead of in a container.                                          |
+
+### Workflow commands
+
+Workflow commands are used to access the functions in
+[action/toolkit](https://github.com/actions/toolkit). And it has the
+following format:
+
+    echo "::workflow-command parameter1={data},parameter2={data}::{command value}"
+
+Basically, it uses the ‘::’ syntax to run workflow commands within YAML
+file and send the stdout output to the runner machine.
+
+Some useful workflow commands are as follows:
+
+| Command       | Format                                                                         | Description                                                                                                      |
+|---------------|--------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------|
+| set-output    | `::set-output name={name}::{value}`                                            | set outputs from a step, useable by following steps.                                                             |
+| debug         | `::debug::{message}`                                                           | set a debug info. One need set a secret named `ACTIONS_STEP_DEBUG` to true to see the debug messages in the log. |
+| notice        | `::notice file={name},line={line},endLine={endLine},title={title}::{message}`  | sent notice message.                                                                                             |
+| warning       | `::warning file={name},line={line},endLine={endLine},title={title}::{message}` | set warning message.                                                                                             |
+| error         | `::error file={name},line={line},endLine={endLine},title={title}::{message}`   | set an error message.                                                                                            |
+| add-mask      | `::add-mask::{value}`                                                          | mask a value by ’\*’.                                                                                            |
+| stop-commands | `::stop-commands::{endtoken}`                                                  | stop commands from the line until appearance of `{endtoken}`.                                                    |
+| echo          | `::echo::on`, `::echo::off`                                                    | turn on or off echo to print out workflow commands.                                                              |
+
+## Tricks
+
+1.  One can split complex jobs into different workflows and call these
+    workflows in another.
+
+2.  When possible, use cache to save time and cost.
+
+3.  One can use *container* option to let a job run in a docker
+    container environment.
+
+4.  To test workflows locally, one can use the tool
+    [act](https://github.com/nektos/act).
+
+5.  To read properties from a json file and use them in next steps, one
+    can use the function `fromJSON()` as follows (it is important to
+    replace ‘%’ and newlines):
+
+    ``` git
+    steps:
+    - shell: bash
+      id: read_json
+      run: |
+          content=$(cat ./input.json)   
+          content="${content//'%'/'%25'}"
+          content="${content//$'\n'/'%0A'}"
+          content="${content//$'\r'/'%0D'}"
+          echo "::set-output name=json_content::$content"
+    - shell: bash
+      name: show content
+      run: |
+        echo "${{ fromJSON(steps.read_json.outputs.json_content).property1 }}"
+    ```
+
+    Note that the ‘property1’ must point to a single value; if it points
+    to map or array, it may print simply ‘Object’ in output. One can use
+    `toJSON()` to convert this object to a string and then output.
+
+6.  To run an R script which depends on some R packages, there are 4
+    ways to ensure these depended packages are installed in github
+    actions:
+
+    -   install them in the Rscript by calling `install.packages()` or
+        `pak::pkg_install()`. This approach may fail due to the system
+        environment on the runner machine is out of user’s control, such
+        as no writing permissions to certain paths. One can use the
+        action *r-lib/actions/setup-r* to set up a user environment to
+        solve this issue (such as setting R\_LIBS\_USER).
+    -   put all depended packages in a docker image, and use this image
+        as container for actions.
+    -   use the action *<r-lib/actions/setup-r@v2>* to setup R
+        environment and install the dependencies with the action
+        *<r-lib/actions/setup-r-dependencies@v2>*. This approach seems
+        only work for R package repo, because it needs the root
+        directory contains a file *DESCRIPTION*.
+    -   use the action *<r-lib/actions/setup-r@v2>* to setup R
+        environment and install depended packages manually in a separate
+        step by specifying “shell: Rscript {0}”. This approach is
+        simpler but misses the advantage of using
+        *<r-lib/actions/setup-r-dependencies@v2>*: cache.
+
+7.  One can run an entire github action job in a container by specifying
+    element *container* under a job
+    [details](https://docs.github.com/en/actions/using-jobs/running-jobs-in-a-container).
+    Alternatively, one can also just run a step in a container by using
+    the keyword ‘uses’ in the format “docker://{image}:{tag}”, e.g.,
+    *docker://ghcr.io/OWNER/IMAGE\_NAME*, and uses the key *with:* to
+    set *args* and *entrypoint*. (07/11/2022: tested *with.entrypoint*
+    which seems have no effect, possibly this only works in actions with
+    the ‘entrypont’ field is defined. Also don’t confuse with the
+    ‘runs.args’ field in defining a docker action) The available options
+    for container job can be found at
+    [here](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idcontainer).
+    Note that when running a container (or container action), the runner
+    will mount the *GITHUB\_WORKSPACE* directory into the container and
+    make it as the working directory of the container, so the container
+    has access to all the files in the current github repo, and any
+    files with relative paths are searched in this working directory.
+
+    One example of using a docker container in a step is as follows:
+
+    ``` yaml
+    jobs:
+        testdocker:
+            runs-on: ubuntu-latest
+            steps:
+            - uses: actions/checkout@v2
+            - name: Use a docker image
+              uses: docker://dockerhub-user/repo-name:tag
+              with:
+                args: my_prog "arg1" "arg2"
+    ```
+
+    One can find more on the keyword *uses* at
+    [here](https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsuses).
+
+    Note that all environment variables defined at global and job levels
+    are inherited by the container. This is because when the job
+    container is started by github actions, all the defined environment
+    variables are provided via ‘-e’ option of `docker create`, which
+    also maps the volumes between runner and container machines. Check
+    the step of “Initialize containers” in action running log for
+    details.
+
+    Jobs and services based on containers as well as docker container
+    actions only work on Linux runners.
+
+    Container jobs/actions can’t run within another container unless you
+    have docker-in-docker setup.
+
+8.  Discussion on how to call docker command in a docker action
+    [here](https://stackoverflow.com/questions/69609618/github-action-i-wrote-doesnt-have-access-to-repos-files-that-is-calling-the-ac).
+    The main issue is that the inner docker call relies on the
+    filesystem of the github action host runner, not the system of the
+    action container.
+
+9.  Using [conventional
+    commits](https://www.conventionalcommits.org/en/v1.0.0/#summary),
+    one can tell what is a commit for: new feature, bug fix, etc. With
+    that, one can trigger the release version change automatically.
+    Conventional commits format: &gt; &gt; <type>\[optional
+    scope\]:<description> &gt; \[optional body\] &gt; \[optional
+    footer\] patch changes can be triggered with type *fix*, and minor
+    changes can be triggered with type ‘feat’. For major changes, it can
+    happen for any types, and can be triggered by appending ‘!’ to type
+    or using the keyword “BREAKING CHANGE:” in footer.
+
+    The commits can be combined with the tool [semantic
+    release](https://github.com/semantic-release/semantic-release) to
+    automate the whole package release workflow including: determining
+    the next version number, generating the release notes, and
+    publishing the package.
+
+    Semantic release is tool that automate package release, including
+    bumping version number, generating release notes, and publishing
+    packages (such as Node, R packages). The tool is written with
+    Node.js, but it can be used for non-Node.js projects, too: the
+    difference is the way to publish the package to the corresponding
+    registry, if applicable.
+
+    The steps included in the semantic release include:
+
+    -   verify conditions to see whether a release should be made
+    -   get last release, including the commits
+    -   analyze new commits since last release
+    -   verify new release confirmity
+    -   generate release notes from the new commits
+    -   create a git tag corresponding to the new release version
+    -   prepare the release
+    -   publish the release
+    -   notify of the new release or errors
+
+    Semantic release uses plugins to implement each step. Below are some
+    important plugins:
+
+    -   semantic-release/npm: publishing node.js packages to npm
+        registry
+    -   semantic-release/github: publishing a github release and comment
+        on released pull requests/issues
+    -   semantic-release/exec: publishing non-node.js packages with
+        customized steps
+    -   semantic-release/commit-analyzer: analyzing commits
+    -   semantic-release/release-notes-generator: generating release
+        notes
+
+    To use this package, one need to meet the following conditions:
+
+    -   host code in git repository
+    -   install node.js and git cli
+    -   set up a configuration file
+
+    The configuration file can be set in any of the 3 formats
+    ([here](https://github.com/semantic-release/semantic-release/blob/master/docs/usage/configuration.md)
+    for details):
+
+    -   .releaserc: in YAML or JSON format, with optional extensions
+        .yml/.yaml/.json/.js. This may be the only format accepted for
+        non-Node.js projects.
+    -   release.config.js: export an object
+    -   package.json: set a release key in the file
+
+    Note that in the config file, the parameter ‘branches’ determine
+    from which branches a new release can be created. Also for a new
+    release to trigger, it must have new changes compared to the
+    previous release and at least one conventional commit; otherwise no
+    new release.
+
+    Some example configuration files are available at
+    [here](https://semantic-release.gitbook.io/semantic-release/recipes/release-workflow#ci-configurations).
+
+    One can find github actions workflow which triggers semantic-release
+    [here](https://semantic-release.gitbook.io/semantic-release/recipes/release-workflow#ci-configurations).
+
+    FAQs on semantic-release is at
+    [here](https://semantic-release.gitbook.io/semantic-release/support/faq).
+
+## Create custom github actions
+
+Action is basically an enclosed step or a bundle of steps, so it can
+include the code used in normal workflow as steps.
+
+There are two types of publishable actions: Javascript and Docker
+actions. The former can run on all major OSs, but the latter can only
+run on Linux. Also Javascript-based actions are faster than docker
+actions because of no need to build docker images. However, docker
+actions are more consistent because all the environments are included in
+the docker image.
+
+An action includes the meta file action.yaml which includes the steps of
+the action and defines the inputs and outputs for the action as well as
+entry points. Additionally, the action may also include other scripts
+called by the steps in the meta file action.yml. One can go through this
+[article](https://www.thisdot.co/blog/creating-custom-github-actions) to
+see the whole process of developing a Javascript action.
+
+Details on the settings in the file *action.yaml* can be found at
+[here](https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions).
+
+A tutorial of creating actions by using Dockerfile can be found
+[here](https://betterprogramming.pub/4-steps-to-creating-a-custom-github-action-d67c4cf0445a).
+
+Official document is at
+[here](https://docs.github.com/en/enterprise-cloud@latest/actions/creating-actions/creating-a-docker-container-action).
+
+One can create composite action which contains multiple workflow steps
+and allows these steps to run one step via action. To do so, one need to
+use the keyword *using: “composite”*.
+
+### Metadata file action.yml
+
+This file defines the inputs, outputs, and runs for an action using YAML
+syntax. For more info on metadata file, see
+[here](https://docs.github.com/en/actions/creating-actions/metadata-syntax-for-github-actions).
+
+A typical action.yml looks like below:
+
+``` yaml
+name: "The action name, required"
+description: "short description, required"
+author: "author's name, optional"
+inputs:
+    varName1:
+        description: "description of the input 1"
+        required: false # or true
+        default: "default value 1"
+    varName2:
+        description: "another input"
+        required: true
+outputs:
+    outValue1:
+        description: "description for output 1"
+runs:
+    using: "node16" # the executor: javascript, docker, or composite
+    main: 'main.js' # the main script to be executed
+    pre: 'setup.js' # a script run before main script
+    pre-if: runner.os == 'linux' # only run pre script if this is true
+    post: 'clean.js' # a script run after main script
+```
+
+**inputs**
+
+-   the field *inputs* is optional. If provided, they can be used in the
+    file action.yml via the format *inputs.varname1* (note that all
+    uppercase are converted to lowercase).
+
+-   At the same time, the workflow calling the action will also create
+    environment variables in the format of *INPUT\_<VAR_NAME>*, for
+    example, *INPUT\_VARNAME1* (workflow steps use keyword *with* to
+    provide these parameters), so all letters are uppercased. For
+    composite actions, these variables would not be created
+    automatically.
+
+-   To access the inputs in a docker container action, they need to be
+    provided via the *with* keyword.
+
+-   Note that each input is enclosed as a single string/argument when
+    provided to the executable. Therefore, strings like ‘–file a.txt’
+    will not work if the executable expects to read ‘a.txt’ for the
+    parameter ‘–file’. A solution can be using the corresponding
+    environment variables.
+
+**outputs**
+
+-   the field *outputs* is also optional, allowing one to declare the
+    data that an action sets.
+
+-   outputs are Unicode strings with a limit of 1MB per action, and 50MB
+    per workflow.
+
+-   if an output is not declared in action.yml, one can still use the
+    outputs in a workflow.
+
+-   for composite actions, there is one more field for an output in
+    addition to *description*, which is *value*. The *value* field
+    specifies the exact output from which step(s) should be output.
+
+**runs**
+
+-   it sets up the action step(s) and how to execute them.
+
+-   keyword *using* provides the executor: Javascript, composite, or
+    Docker, activated via the value ‘node16’, ‘composite’, or ‘docker’,
+    respectively.
+
+-   for composite action, there is also *runs.steps* to provide steps,
+    just like the ones in workflow. Can be either ‘run’ or ‘uses’ step.
+    For ‘run’ step, one also need to set ‘shell’. Each step can also
+    sets *name*, *id*, *env*, *working-directory* and *with*. A step can
+    also set *continue-on-error* to allow the action continue if the
+    step fails.
+
+-   for docker actions, it has the following fields:
+
+    -   *runs.image*, which can be fed with ‘Dockerfile’ or
+        ‘docker://\[<repo-provider>/\]<repo>:<tag>’, to use the local
+        Dockerfile in the action or a public docker container. Or use a
+        relative path pointing to a repo folder which contains a docker
+        action.
+
+    -   *runs.env*: a key/value map of environment variables for the
+        container.
+
+    -   *runs.enrtrypoint*: override the entrypoint in the container.
+        Note that the executable for this option, if specified in
+        relative path, can be a file in the github repo folder, because
+        the current github repo is mounted to the docker container as
+        the working directory (i.e. *GITHUB\_WORKSPACE*); to use the
+        files in the docker container, use absolute paths.
+
+    -   *runs.pre-entrypoint*: a command run before entrypoint, note
+        that this command is run in a separate container from the main
+        one.
+
+    -   *runs.args*: an array of strings to provide inputs for the
+        container. these arguments are provided to the entrypoint
+        command when the container starts. These arguments are read by
+        the command as positional arguments like `$1`, `$2`, etc. Note
+        that each string is provided to the command as a single
+        argument, so an element ‘–file a.txt’ is treated as a single
+        argument, not an argument ‘–file’ with value ‘a.txt’. This need
+        to be considered when writing action command (e.g., use
+        `set -- $string` to expand the input).
+
+-   for docker actions, when setting up with Dockerfile, it has the
+    following points to keep in mind:
+
+    -   Don’t use *USER* instruction, because this will inhibit access
+        to *GITHUB\_WORKSPACE*.
+
+    -   Don’t use the *WORKDIR* instruction, because github actions will
+        mount *GITHUB\_WORKSPACE* to the container and set it as the
+        working directory (so the *WORKDIR* set by Dockerfile has no
+        effect).
+
+    -   *ENTRYPOINT* instruction should use the **absolute path** to
+        specify the path to the executable, rather than a relative path.
+        It is also recommended to use a script named entrypoint.sh to
+        accept *args* defined in actions.
+
+    -   When using *exec* form to specify entrypoint command, the args
+        with environment variables will not run properly, to solve this,
+        one can use *shell* format or execute a shell directly. For
+        example:
+
+            ENTRYPOINT ["echo $GITHUB_SHA"] # won't substitute the variable
+            # correct way
+            ENTRYPOINT ["sh", "-c", "echo $GITHUB_SHA"]
+
+    -   if action.yml defines *args*, then the args will override the
+        values specified in the *CMD* instruction of the Dockerfile.
+        Then one should document what arguments should be omitted in
+        *args*.
+
+### Create docker actions
+
+GitHub reserves the /github path prefix and creates three directories
+for actions.
+
+-   /github/home: mapped from /home/runner/work/\_temp/\_github\_home
+-   /github/workspace: the default working directory of the container,
+    mapped from current working directory, i.e., checked repo. GitHub
+    Actions must be run by the default Docker user (root). Ensure your
+    Dockerfile does not set the USER instruction, otherwise you will not
+    be able to access GITHUB\_WORKSPACE.
+-   /github/workflow: mapped from
+    /home/runner/work/\_temp/\_github\_workflow
+
+## Github settings
+
+### Notifications
+
+One can set whether to receive notifications when git actions are
+finished or fail.
+
+## Caveats
+
+1.  Scheduled cron workflows don’t run unless these workflow files are
+    in the default/base branch.
+
+2.  Strings need be quoted with single (not double) quotes for github
+    expressions.
+
+3.  Note that a step failure or skipping will not skip subsequent steps
+    in a job, unless `if` conditionals are added at each subsequent step
+    to test the status of the failed/skipped step.
+
+4.  By default, a github workflow will not trigger other workflows
+    recursively. For example, running workflow A pushes changes to the
+    repo, and the workflow B triggered on push will not run by this
+    push, if one uses *GITHUB\_TOKEN* to authenticate the action. To
+    disable this feature (i.e., trigger workflows in another workflow),
+    one can use personal token which can be stored in *secrets*.
+
+5.  *push* event will not be triggered if one push more than 3 tags at
+    once.
+
+6.  When specifying inputs for the action *docker/build-push-action*, if
+    the inputs contain environment variables, then these variables need
+    be provided in the format of context, for example, one should use
+    ‘tags:
+    ![{{env.IMAGE\_NAME}}:](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%7B%7Benv.IMAGE_NAME%7D%7D%3A "{{env.IMAGE_NAME}}:"){{env.TAG}}’,
+    rather than ‘tags:
+    ![IMAGE\_NAME:](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;IMAGE_NAME%3A "IMAGE_NAME:")TAG’.
+
+### Trigger manually
+
+To do so, one can use the event `repository_dispatch` or
+`workflow_dispatch`. Check
+[here](https://docs.github.com/en/rest/repos/repos#create-a-repository-dispatch-event)
+for details. This only works on main/default branch.
+
+## Fees
+
+There are some free storage and minutes (per month) for both public and
+private accounts. After one uses all the free quota, fees will be
+charged per day.
+
+Also Linux-hosted runners are cheaper than Windows- and MacOS- hosted
+runners.
+
+More details can be found
+[here](https://docs.github.com/en/billing/managing-billing-for-github-actions/about-billing-for-github-actions).
+
+## References
+
+1.  docker login-action: <https://github.com/docker/login-action>
+
+2.  configuration for github actions that build docker images:
+    <https://docs.docker.com/ci-cd/github-actions/>
+
+3.  Github actions environment variables:
+    <https://dev.to/mihinduranasinghe/working-with-environment-variables-github-actions-part-2-46po>
+
+4.  A good introduction on Github actions:
+    <https://gabrieltanner.org/blog/an-introduction-to-github-actions>
+
+5.  
