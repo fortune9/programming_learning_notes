@@ -1,7 +1,7 @@
 Python learning notes
 ================
 Zhenguo Zhang
-July 10, 2023
+July 16, 2023
 
 -   [Variables](#variables)
     -   [False values](#false-values)
@@ -16,9 +16,14 @@ July 10, 2023
     -   [PEP8 guideline summary](#pep8-guideline-summary)
     -   [flake8 configuration](#flake8-configuration)
     -   [Static type hinting](#static-type-hinting)
+    -   [Docstrings](#docstrings)
 -   [Performance test](#performance-test)
 -   [Some useful modules and
     packages](#some-useful-modules-and-packages)
+-   [Similarity between Python and other
+    languages](#similarity-between-python-and-other-languages)
+    -   [Perl](#perl)
+    -   [R](#r)
 
 ## Variables
 
@@ -34,6 +39,16 @@ July 10, 2023
 ## Packages
 
 ## Modules
+
+In python, there are different terms to describe files, here is a
+summary.
+
+| Name    | Description                                                                                                                   |
+|---------|:------------------------------------------------------------------------------------------------------------------------------|
+| script  | a single file runnable, it contains code outside the scope of functions and classes.                                          |
+| module  | a file intended to be imported and defines members like classes, functions, and variables intended to be used in other files. |
+| package | a collection of modules/subpackages in a folder, which needs **init**.py                                                      |
+| library | this is a loose term referring any packages or collection of packages, such as python standard library.                       |
 
 ## Code testing
 
@@ -225,6 +240,87 @@ in static typing.
 | X: Match\[str\]=re.match(‘+’,”*abc*”)      | X is a regex match object                                                                                    |
 | X: IO\[str\] = sys.stdin                   | X is a filehandle by using IO type                                                                           |
 
+### Docstrings
+
+Docstrings should be enclosed in by triple-quotes """, and each line the
+maximal length is 72. Docstrings can be classified into the following
+categories:
+
+| category         | where to put                                            | what to include                                                                                                                            |
+|------------------|:--------------------------------------------------------|:-------------------------------------------------------------------------------------------------------------------------------------------|
+| class docstrings | immediately after class declaration, indented one level | brief summary of the class, public methods with brief description, class attributes, any interface for subclasses.                         |
+| class methods    | immediately after the class method declaration          | brief description of the method is for, arguments, , returns, any side effects, exceptions that are raised, restrictions on method call.   |
+| package          | at the top of **init**.py file of the package           | list modules and sub-packages exported by the package.                                                                                     |
+| module           | at the top before import statements                     | description of the module and its purpose, list of classes, functions, and any other exported objects                                      |
+| module function  | immediately after function declaration                  | similar to class methods, including description, arguments, side effects, exceptions, and restrictions on when the function can be called. |
+| script           | at the top of the file                                  | description of the purpose, arguments, and dependent packages/modules.                                                                     |
+
+When on run help(obj), it essentially extracts the information stored in
+obj.\_\_doc\_\_, i.e., Docstring, which can be generated from the
+strategic placement of strings directly below an object. One can
+manipulate obj.\_\_doc\_\_ to modify this value
+
+The Docstrings have multiple formats, summarized as below. Among them,
+restructured text and NumPy/SciPy Docstrings formats are formal
+specification and supported by Sphinx. One can find more on restructured
+text syntax at
+<https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html>.
+
+| format                                                              | example                                             |
+|---------------------------------------------------------------------|:----------------------------------------------------|
+| Google                                                              | """Gets and prints the spreadsheet’s header columns |
+|                                                                     |                                                     |
+| Args:                                                               |                                                     |
+| file\_loc (str): The file location of the spreadsheet               |                                                     |
+| print\_cols (bool): A flag used to print the columns to the console |                                                     |
+| (default is False)                                                  |                                                     |
+|                                                                     |                                                     |
+| Returns:                                                            |                                                     |
+| list: a list of strings representing the header columns             |                                                     |
+| """                                                                 |                                                     |
+| restructured text                                                   | """Gets and prints the spreadsheet’s header columns |
+|                                                                     |                                                     |
+| :param file\_loc: The file location of the spreadsheet              |                                                     |
+| :type file\_loc: str                                                |                                                     |
+| :param print\_cols: A flag used to print the columns to the console |                                                     |
+| (default is False)                                                  |                                                     |
+| :type print\_cols: bool                                             |                                                     |
+| :returns: a list of strings representing the header columns         |                                                     |
+| :rtype: list                                                        |                                                     |
+| """                                                                 |                                                     |
+|                                                                     |                                                     |
+| NumPy/SciPy                                                         | """Gets and prints the spreadsheet’s header columns |
+|                                                                     |                                                     |
+| Parameters                                                          |                                                     |
+| ———-                                                                |                                                     |
+| file\_loc : str                                                     |                                                     |
+| The file location of the spreadsheet                                |                                                     |
+| print\_cols : bool, optional                                        |                                                     |
+| A flag used to print the columns to the console (default is False)  |                                                     |
+|                                                                     |                                                     |
+| Returns                                                             |                                                     |
+| ——-                                                                 |                                                     |
+| list                                                                |                                                     |
+| a list of strings representing the header columns                   |                                                     |
+| """                                                                 |                                                     |
+|                                                                     |                                                     |
+| Epytext                                                             | """Gets and prints the spreadsheet’s header columns |
+|                                                                     |                                                     |
+| @type file\_loc: str                                                |                                                     |
+| @param file\_loc: The file location of the spreadsheet              |                                                     |
+| @type print\_cols: bool                                             |                                                     |
+| @param print\_cols: A flag used to print the columns to the console |                                                     |
+| (default is False)                                                  |                                                     |
+| @rtype: list                                                        |                                                     |
+| @returns: a list of strings representing the header columns         |                                                     |
+| """                                                                 |                                                     |
+
+Sphinx is a powerful document auto-generation system, which can parse
+Docstrings in the python code using audodoc extension and can convert
+any reStructured and markdown texts to a bunch of different formats such
+as html, pdf, manpages, etc. One can learn more at
+<https://www.sphinx-doc.org/en/master/usage/quickstart.html>.
+
 ## Performance test
 
 To test performance after each change, one can also set up tests, or use
@@ -253,3 +349,26 @@ the pytest plugin pytest-benchmark.
     ACCESS\_DEFAULT. The ACCESS\_WRITE mode writes both to memory and
     underlying file, while ACCESS\_COPY only writes to memory and not to
     file
+
+-   Mypy: a package to statically check code compatibility among
+    different parts, to take advantage of the capacity, the code needs
+    typing specification/type hints, such as ‘def greeting(name: str)
+    -&gt; str’. The code without type annotation is considered
+    dynamically typed by mypy, such as ‘def greeting(name)’, and in
+    default, mypy will not check dynamical typing.
+
+## Similarity between Python and other languages
+
+### Perl
+
+Python \| Perl \| Comment List comprehension and map function \| map \|
+Similar between these two Underscore ‘\_’ \| undef \| Disgard returned
+value Filter \| grep \| break \| last \| Stop a loop continue \| next \|
+Iterate to next item in a loop
+
+### R
+
+Python \| R \| Comment map(fun, args …) \| apply \| True when the fun
+accepting multiple arguments. Zip(list1,list2), return a list of tuples
+with each containing corresponding elements from list 1 and 2 \|
+cbind(list1, list2) \|

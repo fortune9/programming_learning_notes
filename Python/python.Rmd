@@ -30,6 +30,17 @@ always_allow_html: true
 
 ## Modules
 
+In python, there are different terms to describe files, here is a summary.
+
+Name	| Description
+--- | :---
+script	| a single file runnable, it contains code outside the scope of functions and classes.
+module	| a file intended to be imported and defines members like classes, functions, and variables intended to be used in other files.
+package	| a collection of modules/subpackages in a folder, which needs __init__.py
+library	| this is a loose term referring any packages or collection of packages, such as python standard library.
+
+
+
 ## Code testing
 
 ### Manual and automatic testing
@@ -181,6 +192,88 @@ Seats: ClassVar[int]=4 | Use ‘ClassVar’ type to annotate a class variable.
 X: Match[str]=re.match(‘\w+’,”_abc_”) | X is a regex match object
 X: IO[str] = sys.stdin | X is a filehandle by using IO type
 
+### Docstrings
+
+Docstrings should be enclosed in by triple-quotes """,
+and each line the maximal length is 72. Docstrings can be classified into the following categories:
+
+category | where to put	| what to include
+--- | :--- | :---
+class docstrings |	immediately after class declaration, indented one level	| brief summary of the class, public methods with brief description, class attributes, any interface for subclasses.
+class methods |	immediately after the class method declaration | brief description of the method is for, arguments, , returns, any side effects, exceptions that are raised, restrictions on method call.
+package	| at the top of __init__.py file of the package	| list modules and sub-packages exported by the package.
+module | at the top before import statements | description of the module and its purpose, list of classes, functions, and any other exported objects
+module function | immediately after function declaration | similar to class methods, including description, arguments, side effects, exceptions, and restrictions on when the function can be called.
+script | at the top of the file	| description of the purpose, arguments, and dependent packages/modules.
+
+
+When on run help(obj), it essentially extracts the information stored
+in obj.__doc__, i.e., Docstring, which can be generated from the strategic
+placement of strings directly below an object. One can manipulate obj.__doc__ to modify this value
+
+The Docstrings have multiple formats, summarized as below. Among them,
+restructured text and NumPy/SciPy Docstrings formats are formal specification
+and supported by Sphinx. One can find more on restructured text syntax
+at https://www.sphinx-doc.org/en/master/usage/restructuredtext/basics.html.
+
+format | example
+--- | :---
+Google | """Gets and prints the spreadsheet's header columns
+ | 
+ | Args:
+ |     file_loc (str): The file location of the spreadsheet
+ |     print_cols (bool): A flag used to print the columns to the console
+ |         (default is False)
+ | 
+ | Returns:
+ |     list: a list of strings representing the header columns
+ | """
+restructured text |	"""Gets and prints the spreadsheet's header columns
+ | 
+ | :param file_loc: The file location of the spreadsheet
+ | :type file_loc: str
+ | :param print_cols: A flag used to print the columns to the console
+ |     (default is False)
+ | :type print_cols: bool
+ | :returns: a list of strings representing the header columns
+ | :rtype: list
+ | """
+ | 
+NumPy/SciPy	| """Gets and prints the spreadsheet's header columns
+ | 
+ | Parameters
+ | ----------
+ | file_loc : str
+ |     The file location of the spreadsheet
+ | print_cols : bool, optional
+ |     A flag used to print the columns to the console (default is False)
+ | 
+ | Returns
+ | -------
+ | list
+ |     a list of strings representing the header columns
+ | """
+ | 
+Epytext	| """Gets and prints the spreadsheet's header columns
+ | 
+ | @type file_loc: str
+ | @param file_loc: The file location of the spreadsheet
+ | @type print_cols: bool
+ | @param print_cols: A flag used to print the columns to the console
+ |     (default is False)
+ | @rtype: list
+ | @returns: a list of strings representing the header columns
+ | """
+
+Sphinx is a powerful document auto-generation system, which can parse Docstrings
+in the python code using audodoc extension and can convert any reStructured and
+markdown texts to a bunch of different formats such as html, pdf, manpages, etc.
+One can learn more at https://www.sphinx-doc.org/en/master/usage/quickstart.html.
+
+
+
+
+
 
 ## Performance test
 
@@ -191,5 +284,31 @@ To test performance after each change, one can also set up tests, or use the pyt
 - bandit: To test security flaws in your code, one can use the ‘bandit’ package. This can also be included in a setup.cfg for CI/CD tools
 
 - mmap: one can use the module mmap to represent file as memory-mapped file objects, which behaves like both bytearrays and file objects, so one can use the methods from both classes. mmap uses virtual memory to handle big files and can allow multiple processes to access the same data with shared memory (fileno=-1, not compatible with multiprocessing module, for which use shared_memory module instead). mmap object has many methods as file objects have and also have find and rfind methods to search subsequences in the whole file. But in terms of efficiency, mmap may not be faster than regular read/write all the time, depending on the file size (mmap performs better in larger files) and specific operations. Also mmap object can be used as a string, so operations like regular expression can be also used on it. There are four access mode for mmap, ACCESS_READ, ACCESS_WRITE, ACCESS_COPY, and ACCESS_DEFAULT. The ACCESS_WRITE mode writes both to memory and underlying file, while ACCESS_COPY only writes to memory and not to file
+
+- Mypy: a package to statically check code compatibility among different parts, to take advantage
+    of the capacity, the code needs typing specification/type hints, such as
+    ‘def greeting(name: str) -> str’. The code without type annotation is considered dynamically
+    typed by mypy, such as ‘def greeting(name)’, and in default, mypy will not check dynamical typing.
+
+
+## Similarity between Python and other languages
+
+### Perl
+
+Python | Perl  | Comment
+List comprehension and map function |	map	 | Similar between these two
+Underscore ‘_’ | undef | Disgard returned value
+Filter | grep |
+break | last | Stop a loop
+continue | next | Iterate to next item in a loop
+
+
+
+### R
+
+Python | R | Comment
+map(fun, args …) | apply | True when the fun accepting multiple arguments.
+Zip(list1,list2), return a list of tuples with each containing corresponding elements from list 1 and 2 | cbind(list1, list2) |
+
 
 
