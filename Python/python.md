@@ -269,7 +269,6 @@ text syntax at
 | format                                                              | example                                             |
 |---------------------------------------------------------------------|:----------------------------------------------------|
 | Google                                                              | """Gets and prints the spreadsheet’s header columns |
-|                                                                     |                                                     |
 | Args:                                                               |                                                     |
 | file\_loc (str): The file location of the spreadsheet               |                                                     |
 | print\_cols (bool): A flag used to print the columns to the console |                                                     |
@@ -279,7 +278,6 @@ text syntax at
 | list: a list of strings representing the header columns             |                                                     |
 | """                                                                 |                                                     |
 | restructured text                                                   | """Gets and prints the spreadsheet’s header columns |
-|                                                                     |                                                     |
 | :param file\_loc: The file location of the spreadsheet              |                                                     |
 | :type file\_loc: str                                                |                                                     |
 | :param print\_cols: A flag used to print the columns to the console |                                                     |
@@ -290,7 +288,6 @@ text syntax at
 | """                                                                 |                                                     |
 |                                                                     |                                                     |
 | NumPy/SciPy                                                         | """Gets and prints the spreadsheet’s header columns |
-|                                                                     |                                                     |
 | Parameters                                                          |                                                     |
 | ———-                                                                |                                                     |
 | file\_loc : str                                                     |                                                     |
@@ -303,9 +300,7 @@ text syntax at
 | list                                                                |                                                     |
 | a list of strings representing the header columns                   |                                                     |
 | """                                                                 |                                                     |
-|                                                                     |                                                     |
 | Epytext                                                             | """Gets and prints the spreadsheet’s header columns |
-|                                                                     |                                                     |
 | @type file\_loc: str                                                |                                                     |
 | @param file\_loc: The file location of the spreadsheet              |                                                     |
 | @type print\_cols: bool                                             |                                                     |
@@ -361,14 +356,17 @@ the pytest plugin pytest-benchmark.
 
 ### Perl
 
-Python \| Perl \| Comment List comprehension and map function \| map \|
-Similar between these two Underscore ‘\_’ \| undef \| Disgard returned
-value Filter \| grep \| break \| last \| Stop a loop continue \| next \|
-Iterate to next item in a loop
+| Python                              | Perl  | Comment                        |
+|-------------------------------------|-------|:-------------------------------|
+| List comprehension and map function | map   | Similar between these two      |
+| Underscore ‘\_’                     | undef | Disgard returned value         |
+| Filter                              | grep  |                                |
+| break                               | last  | Stop a loop                    |
+| continue                            | next  | Iterate to next item in a loop |
 
 ### R
 
-Python \| R \| Comment map(fun, args …) \| apply \| True when the fun
-accepting multiple arguments. Zip(list1,list2), return a list of tuples
-with each containing corresponding elements from list 1 and 2 \|
-cbind(list1, list2) \|
+| Python                                                                                                  | R                   | Comment                                         |
+|---------------------------------------------------------------------------------------------------------|---------------------|:------------------------------------------------|
+| map(fun, args …)                                                                                        | apply               | True when the fun accepting multiple arguments. |
+| Zip(list1,list2), return a list of tuples with each containing corresponding elements from list 1 and 2 | cbind(list1, list2) |                                                 |
