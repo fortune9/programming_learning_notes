@@ -1,14 +1,22 @@
 Python learning notes
 ================
 Zhenguo Zhang
-July 16, 2023
+July 23, 2023
 
 -   [Variables](#variables)
+    -   [Python data types](#python-data-types)
     -   [False values](#false-values)
 -   [Functions](#functions)
+    -   [Notes](#notes)
+    -   [Useful functions](#useful-functions)
 -   [Classes](#classes)
 -   [Packages](#packages)
 -   [Modules](#modules)
+    -   [Load python modules](#load-python-modules)
+    -   [Search python modules](#search-python-modules)
+    -   [Popuplar modules](#popuplar-modules)
+    -   [matplotlib](#matplotlib)
+    -   [Pandas](#pandas)
 -   [Code testing](#code-testing)
     -   [Manual and automatic testing](#manual-and-automatic-testing)
     -   [Testing modules](#testing-modules)
@@ -17,15 +25,31 @@ July 16, 2023
     -   [flake8 configuration](#flake8-configuration)
     -   [Static type hinting](#static-type-hinting)
     -   [Docstrings](#docstrings)
+    -   [Multi-line string](#multi-line-string)
+    -   [Multi-line statement](#multi-line-statement)
 -   [Performance test](#performance-test)
 -   [Some useful modules and
     packages](#some-useful-modules-and-packages)
+-   [Debug](#debug)
 -   [Similarity between Python and other
     languages](#similarity-between-python-and-other-languages)
     -   [Perl](#perl)
     -   [R](#r)
+    -   [python 2 and 3.](#python-2-and-3)
+    -   [Tips](#tips)
+-   [Notebooks](#notebooks)
+    -   [Notebook hosting services](#notebook-hosting-services)
 
 ## Variables
+
+### Python data types
+
+| Type                        | Comment                                                                         |
+|-----------------------------|---------------------------------------------------------------------------------|
+| Tuple, e.g, (1, 3, ‘aha’)   | Similar to list, but immutable                                                  |
+| Set. {1, 2, 3,‘aha’}        | Cannot get element by index, and the elements must be different from each other |
+| List, \[1,2,3,‘aha’\]       | a list can contain elements of different types                                  |
+| Dictionary, {‘a’: 1, ‘b’:2} | Like hash in Perl                                                               |
 
 ### False values
 
@@ -34,21 +58,292 @@ July 16, 2023
 
 ## Functions
 
+### Notes
+
+-   Every time we pass in an object into a function in Python, what we
+    are doing is not passing in a box that contains an object but we are
+    passing in a copy of the box that contains an address to the
+    specific object, i.e. a reference to an object. And when we change
+    the object in place within function, we change the original object
+    outside too. However, if we change the passed-in copied box within
+    the function (re-assign), Python does some magic and creates a new
+    object that the copied box points to. Therefore, depending on
+    changing the copied box (the function variable) or the object the
+    copied box points to, the side effect to outside variables will
+    differ: changing the copied box would not have side effect to
+    outside namespace.
+
+-   30. In python, there is a type of function called ‘closure’, it is
+        defined as a function in another function and can be returned as
+        a variable. The key information is about the lifetime of
+        variables when the closure is defined: the closure remembered
+        its local environment when it is defined, so even some variables
+        have been destroyed after the outer function is called.
+        Eg: &gt; &gt;&gt;&gt; def outer(x): &gt; … def inner(): &gt; …
+        print x \# 1 &gt; … return inner &gt; &gt;&gt;&gt; print1 =
+        outer(1) &gt; &gt;&gt;&gt; print2 = outer(2) &gt; &gt;&gt;&gt;
+        print1() &gt; 1 &gt; &gt;&gt;&gt; print2() &gt; 2
+
+### Useful functions
+
+| Function name                                                                                             | purpose                                                                                                                                                                                                |
+|-----------------------------------------------------------------------------------------------------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| Bin(), hex(),int(), oct()                                                                                 | Convert numbers between oct. hex and decimal formats                                                                                                                                                   |
+| Str1\*3, str1\[start:end\], str1+str2                                                                     | Repeat, slice, concatenate strings                                                                                                                                                                     |
+| Float(), int(), str()                                                                                     | Convert between float, int, and strings                                                                                                                                                                |
+| ord(), chr()                                                                                              | Get ASCII code or convert a code to a character.                                                                                                                                                       |
+| Tuple(), list()                                                                                           | Convert to tuple or list                                                                                                                                                                               |
+| Capitalize(), lower(), upper(), title(), swapcase(), replace(), startswith(), endswith(), find(), count() | Methods for strings                                                                                                                                                                                    |
+| len()                                                                                                     | Get the length of a string, list, tuple                                                                                                                                                                |
+| next()                                                                                                    | Get next element from an iterator                                                                                                                                                                      |
+| Sum()                                                                                                     | Return the sum of numbers in a list or tuple                                                                                                                                                           |
+| isinstance(obj, type)                                                                                     | test whether an object is certain type/class, e.g., isinstance(“a”,str )                                                                                                                               |
+| id()                                                                                                      | Get the memory address of a variable                                                                                                                                                                   |
+| dir()                                                                                                     | get the attributes of an object or class, such as their methods and variables.                                                                                                                         |
+| sys.getsizeof()                                                                                           | Get the memory size of an object (not working on nested object)                                                                                                                                        |
+| issubclass(a, b)                                                                                          | testing whether a is a subclass of b.                                                                                                                                                                  |
+| locals()                                                                                                  | get a dictionary containing the local variables.                                                                                                                                                       |
+| mod=**import**(“file.py”)                                                                                 | import a file into a variable, and then use the variable to access class/functions/var.                                                                                                                |
+| globals()                                                                                                 | get a dictionary containing the global variables.                                                                                                                                                      |
+| iter(obj\[,sentinel\])                                                                                    | return an iterator which need have **next**() method. If sentinel is absent, obj should supports **iter**() or **getitem**(). If sentinel is present, obj should be a callable with **next**() method. |
+
 ## Classes
 
 ## Packages
 
+A directory of modules form a package. A module can also be in a
+sub-directory, such as a/b/mod.py. To import this module, one can use
+import a.b.mod, and then use the module by referring it as a.b.mod.
+**All packages are modules with **path** attribute, actually.**
+
+One can put a **init**.py file in the folder, say, “my\_lib”, then
+“my\_lib” becomes a package, when loading the package “import my\_lib”
+or any module in the folder ‘my\_lib’, the \_\_init\_\_py is also run
+first. If you want nothing to run, just keep this file empty.
+
+There are two types of packages: regular and namespace. Regular packages
+exist before python 3.2 and needs **init**.py in the directory, where
+**init**.py file is implicitly executed when the module is loaded and
+all the objects/functions in the file are bound to the namespace of the
+package, so it can contain any code which are valid in a module file. In
+**init**.py file, the variable ‘**name**’ refers to the module name. and
+the **init**.py file can define variables/methods/classes as if they
+were defined in the corresponding modules. On the other hand, namespace
+packages are composed of portions, where each portion contributes to a
+submodule, and these portions can exist in different file systems, even
+network, can be zipped. When they are loaded, python creates a namespace
+package for the modules (hirachical structure based on module names).
+For the namespace modules, there is no need to have **init**.py in each
+module folder.
+
+When you import FooPackage, Python searches the directories on
+PYTHONPATH until it finds a file called FooPackage.py or a directory
+called FooPackage containing a file called **init**.py. However, having
+found the package directory, it does not then scan that directory and
+automatically import all .py files. There are two reasons for this
+behaviour. The first is that importing a module executes Python code
+which may take time, memory, or have side effects. So you might want to
+import a.b.c.d without necessarily importing all of a huge package a.
+It’s up to the package designer to decide whether a’s **init**.py
+explicitly imports its modules and subpackages so that they are always
+available, or whether or leaves the client program the ability to pick
+and choose what is loaded. The second is a bit more subtle, and also a
+showstopper. Without an explicit import statement (either in
+FooPackage/**init**.py or in the client program), Python doesn’t
+necessarily know what name it should import foo.py as. On a case
+insensitive file system (such as used in Windows), this could represent
+a module named foo, Foo, FOO, fOo, foO, FoO, FOo, or fOO. All of these
+are valid, distinct Python identifiers, so Python just doesn’t have
+enough information from the file alone to know what you mean. Therefore,
+in order to behave consistently on all systems, it requires an explicit
+import statement somewhere to clarify the name, even on file systems
+where full case information is available.
+
 ## Modules
 
-In python, there are different terms to describe files, here is a
-summary.
+Python modules are python script files; they can contain both
+function/class definitions as well as code, just like normal scripts. It
+can be imported into other scripts, just like bash’s source command to
+import other bash codes; when being imported, the code in the module is
+run.
 
-| Name    | Description                                                                                                                   |
-|---------|:------------------------------------------------------------------------------------------------------------------------------|
-| script  | a single file runnable, it contains code outside the scope of functions and classes.                                          |
-| module  | a file intended to be imported and defines members like classes, functions, and variables intended to be used in other files. |
-| package | a collection of modules/subpackages in a folder, which needs **init**.py                                                      |
-| library | this is a loose term referring any packages or collection of packages, such as python standard library.                       |
+### Load python modules
+
+Each python module is loaded only once in one interpreter session,
+subsequent import statements will not reload the module. To reload a
+module in a program, run importlib.reload(mod).
+
+Python modules can be as simple as a file with defined functions and
+variables, and then one can import the file to use the defined functions
+and variables. The standard python modules are also a set of .py files.
+If there are codes such as calling some functions in a module, these
+calling codes will be executed when importing the module.
+
+Actually, in a python module, one can also define a global variable
+‘**all**=\[foo, bar\]’, which will control what variables to import when
+one uses "from mod import \*".
+
+When loading a module, the import machinery set up the following
+attributes for each module object:
+
+| attribute   | explanation                                                                                                                                |
+|-------------|:-------------------------------------------------------------------------------------------------------------------------------------------|
+| **name**    | the module name, uniquely find the module in the import system.                                                                            |
+| **loader**  | loader object used to load the module.                                                                                                     |
+| **package** | if loaded is a package, it sets to **name**; if a module, sets to parent’s package name, or empty string for top level module.             |
+| **spec**    | module spec that used to import the module.                                                                                                |
+| **path**    | must be set if a module is a package, provides a list of locations to search sub-packages. Maybe altered in **init**.py file of a package. |
+| **file**    | path to module file; optional                                                                                                              |
+| **cached**  | path to compiled code file                                                                                                                 |
+
+There are two ways to import module. Say there is a module a/b/c.py, one
+can use:
+
+``` python
+import a.b.c;
+from a.b import c;
+```
+
+The latter will allow one to refer the functions/variables in the module
+‘c’ as c.fun() in the short format. Note that, if there is also a module
+a/b.py and in it there is a function/variable defined with the name ‘c’,
+then this function/variable will be imported, other than the module.
+
+One can import multiple modules once such as ‘import a, z, m;’, but this
+style is not recommended.
+
+One can also use "from a.b import \*" to load all modules in the package
+a/b. However, depending on whether a variable ‘**all**’ is defined in
+the file a/b/**init**.py, it behaves differently: - if **all** is
+defined as **all**=\[“x”,“y”\], then the submodules a/b/x.py and
+a/b/y.py are loaded. - if **all** is not defined, then the module a.b
+and all names in a.b are loaded
+
+One can also use relative path to import modules. For example, if there
+are two modules x.py and y.py under the folder mypackage/subpackage.
+Then one can use ‘from . import x’ to import the module x to module y,
+because they are in the same folder. relative imports are based on the
+name of the current module’s package (stored in the variable
+**package**), if the module is run as a executable, then the name would
+be **main**, and thus can’t determine the folder of this module and so
+the modules relative to this current module; in this case, absolute
+imports are needed.
+
+When using relative path to import, note that python relies on the
+**name** and **package** to determine where to look the packages. For
+instance, if there is a directory with the following structure:
+
+> top/ —com.py —mod/ ——–bar.py
+
+so when the top/mod/bar.py use ‘import ..com’, and we run it as “python
+–m mod.bar” or “python mod/bar.py” in the folder top/, it will fail with
+error “ValueError: attempted relative import beyond top-level package”.
+The reason is this: when calling python –m mod.bar, the package name is
+‘mod’ and is regarded as current folder (referred by ‘.’, so .bar can
+refer bar.py), so the point ‘..’ goes above the folder ‘mod’, which is
+not in the package name. One solution is call ‘python –m top.mod.bar’;
+at the same time, the folder ‘top’ needs ‘**init**.py’ file to indicate
+it is a package.
+
+Actually, one module can import namespaces imported by another module.
+For example, if module x imported module ‘z’, then module y can also
+import module z by ‘from x import z’.
+
+There are two common mistakes in module loading: circular imports
+(modules load each other) and shadowed imports (creating a module with
+the same name as another module, but also import this another module for
+functions).
+
+One can run a module file a/b/mod.py using two ways: python –m a.b.mod
+and python a/b/mod.py. The former will behave like the module a/b/mod.py
+(as well as necessary parent modules) is imported and also run as a
+script, but the latter doesn’t import the module, just running as a
+standalone script. See this for more
+<https://stackoverflow.com/questions/22241420/execution-of-python-code-with-m-option-or-not>.
+
+### Search python modules
+
+Python module search: One can use python -c ‘import sys;
+print(sys.path)’ to find where python searches for modules/packages.
+Because of this, one can use sys.path.append(‘new\_folder’) to add
+another folder for python to search additional modules. sys.path is
+initialized from three locations: the directory containing the input
+script, the global variable PYTHONPATH (list of colon-separated
+directories), and installation-based default libraries.
+
+Python search modules in current folder and those in sys.path. To
+include a module in another folder, say /my/python/lib, one can use the
+code sys.path.append(“/my/python/lib”) to expend the library/module
+search paths. Or one can put the modules in a folder included in the
+variable sys.path; in this way the change will be permanent.
+
+95. In python, when one import a module, it actually searches the module
+    and binds the results of the search to a local namespace. The search
+    operation is done with the **import**() function. On the other hand,
+    the importlib module provides APIs to import modules, which are
+    simpler than **import**() and provide better control on the import
+    machinery. The search of the module (or package) names in the
+    following order: sys.modules (a mapping between previously imported
+    module/package names and the objects, also called “the module
+    cache”), finders (strategies to find the named module and return
+    specs) and loaders (load the found modules). Actually, the finders
+    are stored in the import hooks, including “meta hooks” and “import
+    path hooks”. The meta hooks are stored in sys.meta\_path, including
+    three types of finders: builtin modules, frozen modules, and modules
+    from import path. import path hooks are triggered when processing
+    sys.path, which is after processing meta hooks. After modules are
+    found, they are loaded and loaders are triggered to execute the
+    module.
+96. in addition to meta path finders, there are path entry finders,
+    which find modules/packages whose locations are specified with
+    string path entries. Three variables are used for finding path
+    entries: sys.path, sys.path\_hooks, sys.path\_importer\_cache, also
+    for packages, **path** attribute is also used.
+
+### Popuplar modules
+
+| Module name      | Function                                                         | Comment                                                                                                                                             |
+|------------------|------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------|
+| BeautifulSoup    | A module to parse a html/XML file into tree hierarchy structure. |                                                                                                                                                     |
+| matplotlib       | Plot figures                                                     | It uses backend to make plots, and it can be setup in configuration file matplotlibrc, which can be found by calling matplotlib.matplotlib\_fname() |
+| numpy            | Processing matrix/vector                                         |                                                                                                                                                     |
+| json             | Packing data for sharing                                         |                                                                                                                                                     |
+| Dateutil.parser  | Parse date/time strings such as Unicode strings                  |                                                                                                                                                     |
+| requests, urllib | internet related options, such as download, inquiry              |                                                                                                                                                     |
+
+### matplotlib
+
+-   matplotlibrc file is the central file to set configuration for
+    python matplotlib. More info on matplotlibrc can be found at
+    <https://gist.github.com/CMCDragonkai/4e9464d9f32f5893d837f3de2c43daa4>.
+
+-   key functions/terms: plt=matplotlib.pyplot; mpl=matplotlib; rcsetup=
+    matplotlib.rcsetup
+
+    | Term/function                                                                | Explantion                                                                                                                                                      |
+    |------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | Plt.get\_backend()                                                           | Get default plot backend used by matplotlib                                                                                                                     |
+    | plt.switch\_backend(“newBk”)                                                 | Switch to new backend.                                                                                                                                          |
+    | mpl.matplotlib\_fname()                                                      | Get matplotlibrc file path.                                                                                                                                     |
+    | rcsetup.interactive\_bk, rcsetup.non\_interactive\_bk, rcsetup.all\_backends | Get all useable backend string keys.                                                                                                                            |
+    | mpl.use(‘agg’)                                                               | Set the backend used by matplotlib. Alternative approaches include set environment variable ‘MPLBACKEND=Qt4Agg’ and put ‘backend: Qt4Agg’ in matplotlibrc file. |
+
+### Pandas
+
+-   Pandas is the package to manipulate data in python, just like the
+    data.frame in R. It has three main data types: series, dataFrame,
+    and panel, in the order of increasing complexity. Series is actually
+    1-dimentional vector, dataFrame is a combination of many same-size
+    series, and panel can contain multiple dataFrame as components (like
+    the list in R).
+
+-   in pandas, row/column names/ids are called indices in
+    pandas.DataFrame, and the row indices can contain more than one
+    variable/column (i.e., multiIndex), like a primary key in a database
+    table; one can use df.xs() and df.loc() to access rows matching
+    certain indice, and one can put slice(None) at an index position
+    where all values are allowed such as df.loc\[(“index1”, slice(None),
+    “index3”),:\].
 
 ## Code testing
 
@@ -152,17 +447,17 @@ Nomenclature
 
 Layout
 
-| Object                                        | Recommendation                                                                                                                                                                                                                                                  | Example            |
-|-----------------------------------------------|:----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------|
-| Top class, function                           | Two blank lines before them                                                                                                                                                                                                                                     |                    |
-| Method in a class                             | One blank line before them                                                                                                                                                                                                                                      |                    |
-| within function                               | Use blank lines to separate main steps                                                                                                                                                                                                                          |                    |
-| max line length                               | 79 characters. For multiple line code, one can put code in parenthesis, brackets, or braces, or use backslash  to connect lines. For a long string, one can make it by connecting multiple string segments with ‘’ or ‘+’, or use () to enclose multiple lines. |                    |
-| indentation                                   | 4 consecutive spaces preferred over tab. For line continuation, one can use ‘hanging indent’ or ‘extra indent’ (align to open delimiter) to improve readability.                                                                                                |                    |
-| closing brace                                 | Align with first non-white character of previous line, or the first character of the construct.                                                                                                                                                                 |                    |
-| comments                                      | Start with ‘\#’ (a space here), using complete sentence with first letter capitalized. Use inline comments sparingly unless necessary                                                                                                                           |                    |
-| docstrings                                    | Enclosed in triple double/single quotes, writing for public modules, functions, methods, classes. Put ending quotes on a single line itself, except for oneline docscript, which should all be in one line.                                                     |                    |
-| Binary operators such as =, &lt;=, or, is, in | Add one white space on each side, but no space when assigning default value in function definition. Also add space to lowest operator only, e.g., \* vs +                                                                                                       | z = (x+y) \* (x-y) |
+| Object                                        | Recommendation                                                                                                                                                                                                                                                 | Example            |
+|-----------------------------------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|:-------------------|
+| Top class, function                           | Two blank lines before them                                                                                                                                                                                                                                    |                    |
+| Method in a class                             | One blank line before them                                                                                                                                                                                                                                     |                    |
+| within function                               | Use blank lines to separate main steps                                                                                                                                                                                                                         |                    |
+| max line length                               | 79 characters. For multiple line code, one can put code in parenthesis, brackets, or braces, or use backslash  to connect lines. For a long string, one can make it by connecting multiple string segments with ‘' or’+’, or use () to enclose multiple lines. |                    |
+| indentation                                   | 4 consecutive spaces preferred over tab. For line continuation, one can use ‘hanging indent’ or ‘extra indent’ (align to open delimiter) to improve readability.                                                                                               |                    |
+| closing brace                                 | Align with first non-white character of previous line, or the first character of the construct.                                                                                                                                                                |                    |
+| comments                                      | Start with ‘\#’ (a space here), using complete sentence with first letter capitalized. Use inline comments sparingly unless necessary                                                                                                                          |                    |
+| docstrings                                    | Enclosed in triple double/single quotes, writing for public modules, functions, methods, classes. Put ending quotes on a single line itself, except for oneline docscript, which should all be in one line.                                                    |                    |
+| Binary operators such as =, &lt;=, or, is, in | Add one white space on each side, but no space when assigning default value in function definition. Also add space to lowest operator only, e.g., \* vs +                                                                                                      | z = (x+y) \* (x-y) |
 
 ### flake8 configuration
 
@@ -231,13 +526,13 @@ in static typing.
 | x: Tuple\[int,…\]                          | Variable size tuple of ints                                                                                  |
 | x: Callable\[\[int,int\],float\]=fun       | A function accepts two ints and return a float                                                               |
 | def g(n:int) -&gt; Iterator\[int\]:        | Return an iterator, such as generator function                                                               |
-| x: List\[Union\[str,int\]\]=\[3,”s”,4\]    | X is a list having mixed elements of str and int.                                                            |
+| x: List\[Union\[str,int\]\]=\[3,“s”,4\]    | X is a list having mixed elements of str and int.                                                            |
 | X: Any = anyType()                         | X can be any type, used when too complicate for typing                                                       |
 | X = “smot” \# type: ignore                 | Suppressing type checking for this line                                                                      |
-| f(mp:Mapping\[int,str\])-&gt;None          | Here mp is a dict-like data, so call it as f({3:’a’, 5:’b’}), for mutable mapping, use ‘MutableMapping\[\]’. |
+| f(mp:Mapping\[int,str\])-&gt;None          | Here mp is a dict-like data, so call it as f({3:‘a’, 5:‘b’}), for mutable mapping, use ‘MutableMapping\[\]’. |
 | x: MyClass = MyClass()                     | Use user-defined class ‘MyClass’ as a type.                                                                  |
 | Seats: ClassVar\[int\]=4                   | Use ‘ClassVar’ type to annotate a class variable.                                                            |
-| X: Match\[str\]=re.match(‘+’,”*abc*”)      | X is a regex match object                                                                                    |
+| X: Match\[str\]=re.match(‘+’,“*abc*”)      | X is a regex match object                                                                                    |
 | X: IO\[str\] = sys.stdin                   | X is a filehandle by using IO type                                                                           |
 
 ### Docstrings
@@ -316,6 +611,39 @@ any reStructured and markdown texts to a bunch of different formats such
 as html, pdf, manpages, etc. One can learn more at
 <https://www.sphinx-doc.org/en/master/usage/quickstart.html>.
 
+### Multi-line string
+
+two ways to construct multiple-line strings, using ’' or triple quotes:
+
+> ‘string 1’  
+> ‘string 2’.format().
+
+Or
+
+> ’‘’string 1 String 2’’’.format().
+
+One can also use the function textwrap.dedent() from the module textwrap
+to remove leading spaces at each line.
+
+### Multi-line statement
+
+To write a statement spreading multiple lines, one need put the state in
+a parenthesis or brackets, such as
+
+``` python
+if (number > 5 and
+            number < 15):
+        print "1"
+```
+
+or use a backslash, such as:
+
+``` python
+if number > 5 and \
+        number < 15:
+    print "1"
+```
+
 ## Performance test
 
 To test performance after each change, one can also set up tests, or use
@@ -352,6 +680,19 @@ the pytest plugin pytest-benchmark.
     dynamically typed by mypy, such as ‘def greeting(name)’, and in
     default, mypy will not check dynamical typing.
 
+## Debug
+
+-   The following ways can be used to debug python script:
+    1.  put pdb.set\_trace() in the program, from where debugging starts
+        (don’t forget import pdb);
+    2.  python –m pdb myscript.py;
+    3.  debug in an interactive interface initiated by typing ‘python’
+        in command line.
+    4.  in ipython, one can import the module ipdb, and use
+        ipdb.runcall(func, arg1, arg2) to debug functions. Check
+        <https://docs.python.org/3/library/pdb.html> for details on
+        debug commands.
+
 ## Similarity between Python and other languages
 
 ### Perl
@@ -359,7 +700,7 @@ the pytest plugin pytest-benchmark.
 | Python                              | Perl  | Comment                        |
 |-------------------------------------|-------|:-------------------------------|
 | List comprehension and map function | map   | Similar between these two      |
-| Underscore ‘\_’                     | undef | Disgard returned value         |
+| Underscore ’\_’                     | undef | Disgard returned value         |
 | Filter                              | grep  |                                |
 | break                               | last  | Stop a loop                    |
 | continue                            | next  | Iterate to next item in a loop |
@@ -370,3 +711,68 @@ the pytest plugin pytest-benchmark.
 |---------------------------------------------------------------------------------------------------------|---------------------|:------------------------------------------------|
 | map(fun, args …)                                                                                        | apply               | True when the fun accepting multiple arguments. |
 | Zip(list1,list2), return a list of tuples with each containing corresponding elements from list 1 and 2 | cbind(list1, list2) |                                                 |
+
+Compare pandas data.frame to R data.frame (pd represents the package
+pandas, df is the data created)
+
+| Pandas command                                                                                                                                                                                                                         | R command                                      | Comment                                                                                                                           |
+|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------|
+| pd.DataFrame(x,y,z,columns=\[‘a’,‘b’,‘c’\]                                                                                                                                                                                             | Data.frame(a=x,b=y,c=z), or cbind(a=x,b=y,c=z) | Create a data frame with 3 columns named a, b and c.                                                                              |
+| Pd.Panel() create 3-dimension array with dim names items, major\_axis, and minor\_axis                                                                                                                                                 | Array()                                        | Create a high-dimension array                                                                                                     |
+| df.head(n)                                                                                                                                                                                                                             | head(df,n)                                     | Show first n rows.                                                                                                                |
+| df.shape                                                                                                                                                                                                                               | Dim(df)                                        | no parenthesis in df.shape, this is an attribute                                                                                  |
+| df.columns                                                                                                                                                                                                                             | Names(df) or colnames(df)                      |                                                                                                                                   |
+| df.values                                                                                                                                                                                                                              | df                                             | Get the values stored in the data frame                                                                                           |
+| df.loc\[0\]\[‘A’\], df.iloc\[0\]\[0\], df.at\[0,‘A’\], df.iat\[0,0\], df.get\_values(0, ‘A’). use df.loc\[:,‘A’\] to select column ‘A’. df.ix\[\] is equivalent to df.loc\[\] when indexes are integers only or df.iloc\[\] otherwise. | df\[1,1\]                                      | Get the element at the first row of first column. In pandas, the index starts with 0. To select a column, use df\[col\] directly. |
+| df.drop(“A”, axis=1, inplace=True)                                                                                                                                                                                                     | df\[,“A”\]&lt;-NULL                            | Delete a column                                                                                                                   |
+| df.pivot(), df.melt(), df.stack(), df.unstack()                                                                                                                                                                                        | reshape(), reshape2 package                    | Convert between long and wide data.frames.                                                                                        |
+| df.isin(a\_list)                                                                                                                                                                                                                       | df %in% a\_list                                | Test whether values in a given list                                                                                               |
+| df.where(df &lt; 0)                                                                                                                                                                                                                    | df\[df&lt;0\]                                  |                                                                                                                                   |
+| df.apply(fun, axis=1)                                                                                                                                                                                                                  | apply(df, 2, fun)                              | Apply a function to a dataFrame rowwise or columnwise (depending on option ‘axis’)                                                |
+| pd.merge(df1, df2, how=“outer”, on=“col1”)                                                                                                                                                                                             | Merge(df1, df2, by=“col1”, all=T)              | Merge two data frame, python’s ‘how’ parameter corresponds to R’s ‘all’.                                                          |
+| pd.DataFrame.sort\_index()                                                                                                                                                                                                             |                                                | sort index of a dataframe for efficient operation                                                                                 |
+| pd.DataFrame.reset\_index()                                                                                                                                                                                                            |                                                | Remove multiIndex of a DataFrame                                                                                                  |
+| df.xs(“indexVal”, level=“indexName”)                                                                                                                                                                                                   |                                                | Select rows matching an index.                                                                                                    |
+
+### python 2 and 3.
+
+Function \| Python 2 \| Python 3 \| Comments print \| Print x \|
+Print(x) \| In python 3 Parameters for print must be in parentheses and
+has ‘sep’ and ‘end’ options. Division / \| 4/3=1 \| 4/3=1.3333, 4//3=1
+\| in python 3, int/int division leads to float, not truncated int as in
+python 2. Open file \| file(“myfile.txt”) \| open(“myfile.txt”) \|
+File() is deprecated in python 3 Get input from user \| Raw\_input() \|
+Input() \| Get a range \| Xrange() \| Range() \| Range() in python 3
+does not return a list and can handle large array. Unicode support \|
+u“hello” \| “hello” \| Supported as default in python 3
+
+### Tips
+
+-   To get all the callable methods for an object, use the following
+    statement: \[m for m in dir(object) if callable(getattr(object,
+    m))\]
+
+-   In python, there are different terms to describe files, here is a
+    summary.
+
+    | Name    | Description                                                                                                                   |
+    |---------|:------------------------------------------------------------------------------------------------------------------------------|
+    | script  | a single file runnable, it contains code outside the scope of functions and classes.                                          |
+    | module  | a file intended to be imported and defines members like classes, functions, and variables intended to be used in other files. |
+    | package | a collection of modules/subpackages in a folder, which needs **init**.py                                                      |
+    | library | this is a loose term referring any packages or collection of packages, such as python standard library.                       |
+
+## Notebooks
+
+### Notebook hosting services
+
+| Name            | Description                                                           |
+|-----------------|:----------------------------------------------------------------------|
+| binder          | sharing notebooks from a GitHub repo; (see related blog post)         |
+| nbviewer        | for viewing hosted notebooks from GitHub or a url (as mentioned)      |
+| JupyterHub      | hosting notebooks on a private server, e.g. local, DigitalOcean, etc. |
+| Azure Notebooks | host notebooks on an Azure server (see sample notebook)               |
+| repo2docker     | spawn docker container from a git repo of notebooks                   |
+| commuter        | read notebooks from a local directory or S3 service                   |
+| Colaboratory    | google’s host for python notebooks                                    |
+| cocalc          | collaborative and share private notebooks                             |
