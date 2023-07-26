@@ -111,29 +111,30 @@ The formatting of text in roxygen using .Rd syntax is as follows (check
 <https://cran.r-project.org/doc/manuals/R-exts.html#Marking-text> for
 more details):
 
-| format      | explanation                         |
-|-------------|-------------------------------------|
-|             | create italics                      |
-|             | bold format                         |
-|             | format as it is                     |
-|             | inline code                         |
-|             | link to function in this package    |
-|             | link to function in another pkg     |
-|             | link to destination but show ‘name’ |
-| 4class{abc} | link to a S4 class                  |
-|             | link to an URL                      |
-|             | link with text                      |
-|             | link to email                       |
+| format                            | explanation                         |
+|-----------------------------------|-------------------------------------|
+| \\emph{italics}                   | create italics                      |
+| \\strong{bold}                    | bold format                         |
+| \\preformatted{text}              | format as it is                     |
+| \\code{r\_fun(arg1=”hello”)}      | inline code                         |
+| \\code{}                          | link to function in this package    |
+| \\code{}                          | link to function in another pkg     |
+| \\link\[=dest\]{name}             | link to destination but show ‘name’ |
+| \\linkS4class{abc}                | link to a S4 class                  |
+| \\url{<http://example.com>}       | link to an URL                      |
+| \\href{<http://example.com>}{exp} | link with text                      |
+| \\<email%7Bhere@@add.com%7D>      | link to email                       |
 
 ### Notes
 
-5- roxygen also allows one to import external functions into a package,
-so that one doesn’t need ‘::’ when referring to a function. To import
-all functions from a package, use ‘@import pkg’; to import specific
-functions, use ‘@import pkg fun1 fun2’. For S3 generics, the same rules
-apply; you don’t need to import S3 methods, because if S3 generic is
-imported, then all associated methods are also available. To import S4
-generics, place ‘@importMethodsFrom pkg generic1 generic2 …’ next to
-methods that implements the imported generics. To use S4 classes, put
-“@importClassesFrom pkg cls1 cls2 …” next to inheriting classes or
-methods implementing generics in those classes.
+-   roxygen also allows one to import external functions into a package,
+    so that one doesn’t need ‘::’ when referring to a function. To
+    import all functions from a package, use ‘@import pkg’; to import
+    specific functions, use ‘@import pkg fun1 fun2’. For S3 generics,
+    the same rules apply; you don’t need to import S3 methods, because
+    if S3 generic is imported, then all associated methods are also
+    available. To import S4 generics, place ‘@importMethodsFrom pkg
+    generic1 generic2 …’ next to methods that implements the imported
+    generics. To use S4 classes, put “@importClassesFrom pkg cls1 cls2
+    …” next to inheriting classes or methods implementing generics in
+    those classes.

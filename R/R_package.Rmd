@@ -105,21 +105,21 @@ The formatting of text in roxygen using .Rd syntax is as follows (check https://
 
 format | explanation
 --- | ---
-\emph{italics} | create italics
-\strong{bold} | bold format
-\preformatted{text} | format as it is
-\code{r_fun(arg1=”hello”)} | inline code
-\code{\link{function}} | link to function in this package
-\code{\link[MASS]{abbey}} | link to function in another pkg
-\link[=dest]{name} | link to destination but show ‘name’
-\linkS4class{abc} | link to a S4 class
-\url{http://example.com} | link to an URL
-\href{http://example.com}{exp} | link with text
-\email{here@@add.com} | link to email
+\\emph{italics} | create italics
+\\strong{bold} | bold format
+\\preformatted{text} | format as it is
+\\code{r_fun(arg1=”hello”)} | inline code
+\\code{\link{function}} | link to function in this package
+\\code{\link[MASS]{abbey}} | link to function in another pkg
+\\link[=dest]{name} | link to destination but show ‘name’
+\\linkS4class{abc} | link to a S4 class
+\\url{http://example.com} | link to an URL
+\\href{http://example.com}{exp} | link with text
+\\email{here@@add.com} | link to email
 
 
 ### Notes
 
-5- roxygen also allows one to import external functions into a package, so that one doesn’t need ‘::’ when referring to a function. To import all functions from a package, use ‘@import pkg’; to import specific functions, use ‘@import pkg fun1 fun2’. For S3 generics, the same rules apply; you don’t need to import S3 methods, because if S3 generic is imported, then all associated methods are also available. To import S4 generics, place ‘@importMethodsFrom pkg generic1 generic2 …’ next to methods that implements the imported generics. To use S4 classes, put “@importClassesFrom pkg cls1 cls2 …” next to inheriting classes or methods implementing generics in those classes.
+- roxygen also allows one to import external functions into a package, so that one doesn’t need ‘::’ when referring to a function. To import all functions from a package, use ‘@import pkg’; to import specific functions, use ‘@import pkg fun1 fun2’. For S3 generics, the same rules apply; you don’t need to import S3 methods, because if S3 generic is imported, then all associated methods are also available. To import S4 generics, place ‘@importMethodsFrom pkg generic1 generic2 …’ next to methods that implements the imported generics. To use S4 classes, put “@importClassesFrom pkg cls1 cls2 …” next to inheriting classes or methods implementing generics in those classes.
 
 
