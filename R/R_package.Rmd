@@ -1,0 +1,125 @@
+---
+title: "R package"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  github_document:
+    toc: true
+---
+
+```{r setup, include=F}
+library(knitr)
+opts_chunk$set(echo=T, comment=">")
+```
+
+This document introduces how to create R packages and some tips learned
+when I created them.
+
+
+## The package `devtools`
+
+With the meta-package ‘devtools’, the development of R packages have become easier. One can read the book at https://r-pkgs.org/ for more details.
+
+### Useful functions
+
+function |	explanation
+--- | :---
+create_package(“abc”) | create a new package named “abc” with the backbone of directory structure.
+use_git() | initialize git repository for current active project or current folder.
+use_r(“my_func”) | create a file “my_func.R” in the R/ folder.
+load_all() | load all functions/variables in R/ from current active package project into memory, but not invade global environment. It simulates the process of building, installing, and attaching the active package, good for testing a package under development.
+check()	| check the whole package making sure it’s fully working, equivalent to command line R CMD check.
+use_gpl3_license(), use_mit_license(), etc | functions to create LICENSE.md file and set correct values in the DESCRIPTION file.
+use_proprietary_license("copy_right_holder") | same as above, but use proprietary license
+document() | convert roxygen comments into help documents store in man/ folder, and add exported functions/variables in NAMESPACE.
+install() | install under-development package into my library.
+use_testthat(), use_test(“my_func”), test()	| create test files and test package
+use_package() | add depended packages by using ‘Imports’ field in DESCRIPTION. Can use the option ‘type’ to change dependency type.
+use_github() | create a remote github repository, need setting up authentication token beforehand, check here https://usethis.r-lib.org/reference/use_github.html
+use_readme_md(), use_readme_rmd(), build_readme() | create README.Rmd and README.md files with skeletons, and do some setups. The latter is preferred as it can also show the usage. build_readme() for creating readme file from .Rmd file.
+build() | build package from sources and create tar.gz file.
+run_examples() | run all examples to makes sure they work.
+check_doc() | checking all documentation
+use_data(…, internal=False), use_data_raw(data_name) | create/save data. use_data() save data in data/ folder when internal=False or in R/sysdata.rda when internal=True. use_data_raw() create a script file in data-raw and one can modify it to show how raw data are read and processed.
+use_vignette(“file-name”) | creates a file in the folder ‘vignettes’ and promoted for editing.
+build_vignettes() | create vignette documents and copy/move them to appropriate folders such as doc/. But note that these documents are excluded from pushing to github in default, because users can get their own when building from your code (use option build_vignettes = TRUE with install__github()).
+install_github(“fortune9/myrepo”) | install package from github. For private repo, one need specify option auth_token. The token can be generated at https://github.com/settings/tokens.
+use_pkgdown() | Run once to configure a package to use pkgdown. It will yield a file ‘_pkgdown.yml’. See https://pkgdown.r-lib.org/articles/customise.html and https://pkgdown.r-lib.org/articles/pkgdown.html for more details on this file.
+pkgdown::build_site() | create a website for a package and stored in the folder docs/. Also need to modify the github settings to let “Github Pages” point to master branch docs/ folder. Then it is visible at https://username.github.io/reponame/.
+use_build_ignore(filenames, escape=T) | Add filenames to .Rbuildignore. If wants to use regular expression directly, change option ‘escape’ to FALSE.
+use_description(fields=list()) | Add fields to the ‘DESCRIPTION’ file, such as ‘Authors@R’, ‘License’, etc. One can also set an option "usethis.description" = list() in .Rprofile to provide default settings for future packages.
+
+## R package files
+
+### folder structure
+
+Folder | Use
+--- | :---
+R/ | Storing files of core code, e.g., functions, also sysdata.rda for package’s use.
+exec/ | For executable scripts, files in this folder automatically marked executable and installed with the ‘exec’ folder. Not recommended as it may break system integrity. Use inst/bin or inst/tools better.
+data/ | Storing processed .Rdata data, available to users
+po/	| Translations for messages
+inst/extdata | Put raw data
+tools/ | Files needed for package configurations or sources to generate scripts.
+data-raw/ | Put scripts on how to generate data. Can be excluded from package, just for developer’s record.
+inst/ | When a package is installed, everything in inst/ is copied into the top-level package directory, so avoid folders that may overwrite regular folders, such as exec/, R/, help/, etc. See https://r-pkgs.org/inst.html. Can use inst/python, inst/java for other languages.
+demo/ | Used for demos before vignettes, deprecated. Each .R file in the folder is a demo, and accessible with demo() function.
+
+### *DESCRIPTION* file
+
+- There is a difference between the ‘Imports’ field in ‘DESCRIPTION’ file and ‘import’ directive in NAMESPACE file: the former is just to make sure the required packages are installed, and the latter imports the functions from the indicated packages
+
+
+## roxygen2 package
+
+*roxygen2* is an R package to automate document generation. One can find more info at https://cran.r-project.org/web/packages/roxygen2/vignettes/roxygen2.html. 
+
+### tags and labels
+
+Tag/label | Effect
+--- | :---
+\dontrun{} | shown in help page but not run.
+@include a.R b.R | load other dependent files before this one.
+\dontshow{} | run in test/example but not shown in help.
+@inheritParams sourceFun | copy all parameter (only those defined in current function) documentation from source function here, except those have been documented here.
+@inheritDotParams sourceFun, @inheritDotParams sourceFun a b, @inheritDotParams sourceFun –x -y | Similar to @inheritParams, but this takes care of the parameter ‘…’. One can also choose or exclude (like –x) certain parameters from source function.
+\donttest{}	| run in example and shown in help, but not be tested.
+@inherit sourceFun	| inherit everything from source function
+@export | a function/object to be exported
+@inherit sourceFun return details etc | inherit selected components only
+@keywords internal | a function/object only visible to the package.
+@rdname sourceFun | copy all the documentation (title, param, etc) here
+@import pkg	| Import all functions from a package. Not recommended.
+@describeIn generic description | used in a generic method and all together generate a section to describe all functions with the same generic.
+@importFrom pkg func1 func2 … | import functions from ‘pkg’ and use it directly
+@includeRmd file/to/path.Rmd | include external .Rmd/.md file
+@importClassesFrom pkg cls1 cls2 … | import classes from a package
+@md | Turn on markdown support for a documentation chunk (e.g., function). Useful when global markdown support is off.
+@importMethodsFrom pkg grc1 grc2 … | import generic methods
+@noMd | Turn off markdown support for a local documentation chunk.
+@family familyNames | mark a function belongs to a family and generate see also “Other familyNames”		
+@slot name description | document the slots in an S4 class definition		
+
+### Text formatting
+
+The formatting of text in roxygen using .Rd syntax is as follows (check https://cran.r-project.org/doc/manuals/R-exts.html#Marking-text for more details):
+
+format | explanation
+--- | ---
+\emph{italics} | create italics
+\strong{bold} | bold format
+\preformatted{text} | format as it is
+\code{r_fun(arg1=”hello”)} | inline code
+\code{\link{function}} | link to function in this package
+\code{\link[MASS]{abbey}} | link to function in another pkg
+\link[=dest]{name} | link to destination but show ‘name’
+\linkS4class{abc} | link to a S4 class
+\url{http://example.com} | link to an URL
+\href{http://example.com}{exp} | link with text
+\email{here@@add.com} | link to email
+
+
+### Notes
+
+5- roxygen also allows one to import external functions into a package, so that one doesn’t need ‘::’ when referring to a function. To import all functions from a package, use ‘@import pkg’; to import specific functions, use ‘@import pkg fun1 fun2’. For S3 generics, the same rules apply; you don’t need to import S3 methods, because if S3 generic is imported, then all associated methods are also available. To import S4 generics, place ‘@importMethodsFrom pkg generic1 generic2 …’ next to methods that implements the imported generics. To use S4 classes, put “@importClassesFrom pkg cls1 cls2 …” next to inheriting classes or methods implementing generics in those classes.
+
+
