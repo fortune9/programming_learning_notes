@@ -7,6 +7,7 @@ July 25, 2023
 -   [R package files](#r-package-files)
     -   [folder structure](#folder-structure)
     -   [*DESCRIPTION* file](#description-file)
+    -   [*NAMESPACE* file](#namespace-file)
 -   [roxygen2 package](#roxygen2-package)
     -   [tags and labels](#tags-and-labels)
     -   [Text formatting](#text-formatting)
@@ -49,6 +50,10 @@ details.
 | pkgdown::build\_site()                                   | create a website for a package and stored in the folder docs/. Also need to modify the github settings to let “Github Pages” point to master branch docs/ folder. Then it is visible at <https://username.github.io/reponame/>.                                                             |
 | use\_build\_ignore(filenames, escape=T)                  | Add filenames to .Rbuildignore. If wants to use regular expression directly, change option ‘escape’ to FALSE.                                                                                                                                                                               |
 | use\_description(fields=list())                          | Add fields to the ‘DESCRIPTION’ file, such as ‘<Authors@R>’, ‘License’, etc. One can also set an option “usethis.description” = list() in .Rprofile to provide default settings for future packages.                                                                                        |
+| use\_directory()                                         | create a directory at the top level of a project, use ‘ignore=T’ to add it to .Rbuildignore.                                                                                                                                                                                                |
+| use\_data\_table()                                       | import functions and important symbols (e.g., .SD, .BY) to the namespace; this is the correct way to use data.table package.                                                                                                                                                                |
+| use\_pipe()                                              | use magrittr ‘%&gt;%’.                                                                                                                                                                                                                                                                      |
+| use\_spell\_check()                                      | add a unit test to automatically run a spell check on documentation and vignettes during R CMD check using spelling package.                                                                                                                                                                |
 
 ## R package files
 
@@ -67,6 +72,36 @@ details.
 | demo/        | Used for demos before vignettes, deprecated. Each .R file in the folder is a demo, and accessible with demo() function.                                                                                                                                                      |
 
 ### *DESCRIPTION* file
+
+-   file format
+
+    | Section           | Explanation                                                                                                                                     |
+    |-------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
+    | Imports           | packages needed for work. These will be installed automatically if not installed yet.                                                           |
+    | Suggests          | packages helpful but not required; not installed automatically                                                                                  |
+    | Depends           | similar to Imports, but it also attaches (not just load) a package only if your package is also attached, so should use Imports for most cases. |
+    | LinkingTo         | packages relying on C/C++ code.                                                                                                                 |
+    | Enhances          | packages to which your package enhances, such as providing methods for classes in these enhanced packages.                                      |
+    | Title/Description | what the package does                                                                                                                           |
+    | <Author@R>        | authors/contributors of the package. R code such as person() is used.                                                                           |
+    | biocViews:        | Add this section will allow install\_github() to find dependent packages in both CRAN and bioconductor.                                         |
+
+### *NAMESPACE* file
+
+This file provides a context for looking up the value of an object
+associated with a name; it normally generated with roxygen2. It both
+exports and imports objects, and here is a summary of used directives in
+it:
+
+-   Directives
+
+    Directive \| explanation S3method() \| export S3 methods
+    export(function) \| export functions, including S3 and S4 generics.
+    exportPattern() \| export all functions matching a pattern
+    exportClasses() \| export S4 classes exportMethods() \| export S4
+    methods import(pkg) \| import all functions from a package
+    importClassesFrom() \| import S4 classes. importMethodsFrom() \|
+    import S4 methods. useDynLib() \| import a function from C
 
 -   There is a difference between the ‘Imports’ field in ‘DESCRIPTION’
     file and ‘import’ directive in NAMESPACE file: the former is just to
@@ -138,3 +173,28 @@ more details):
     generics. To use S4 classes, put “@importClassesFrom pkg cls1 cls2
     …” next to inheriting classes or methods implementing generics in
     those classes.
+
+-   Markdown support by roxygen started from version 6.6.0. It basically
+    allows one to use the markdown syntax to write Rd documentation,
+    such as formatting (italics, emphasis, etc), links to
+    functions/classes/topics (e.g., \[func()\], \[alt
+    text\]\[pkg::func()\], etc), URLs, and code (inline or block). Note
+    that the markdown syntax is not supported in all roxygen tags such
+    as @aliases, @examples, @inheritParams, etc. One can find more
+    details here <https://roxygen2.r-lib.org/articles/markdown.html>.
+
+-   When a function/object is called, it looks for the function/object
+    in the search paths (returned by search()).
+
+-   Differences between loading and attaching a package: the former
+    loads a package in memory but not added to search path, so one has
+    to use ‘::’ to refer the objects in this package. attaching package
+    means loading a package and put it in search paths. To load a
+    package, one can use ‘pkg::obj’, requireNamespace(pkg), or
+    loadNamespace(pkg). To attach a package, use require() or library().
+    loadNamespace() and library() throw errors if package doesn’t exist;
+    requireNamespace() and require() return False if package doesn’t
+    exist. Never use library()/require() in a package (use Imports in
+    DESCRIPTION file to add package) but only in scripts. use
+    requireNamespace() in a package to determine whether a package
+    exists.
