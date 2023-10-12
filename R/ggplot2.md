@@ -1,14 +1,16 @@
 Notes on ggplot2
 ================
 Zhenguo Zhang
-February 27, 2023
+October 11, 2023
 
--   [aesthetic evaluation](#aesthetic-evaluation)
+-   [Aesthetic](#aesthetic)
+-   [Scales and legend](#scales-and-legend)
 -   [Functions](#functions)
     -   [Aesthetic mapping](#aesthetic-mapping)
 -   [Theme](#theme)
     -   [Functions](#functions-1)
 -   [Important facts](#important-facts)
+-   [Efficient programming](#efficient-programming)
 -   [References](#references)
 
 All ggplot2 objects are built using the ggproto system of object
@@ -52,7 +54,10 @@ It’s harder to create a new geom than a new stat because you also need
 to know some grid. ggplot2 is built on top of grid, so you’ll need to
 know the basics of drawing with grid.
 
-## aesthetic evaluation
+## Aesthetic
+
+Aesthetics is what one wants to map data to, such as x values, shapes,
+colors, etc.
 
 In ggplot2, there are three stages of data from which you can map
 aesthetics. They are the start (the user data), after stat (after stat
@@ -61,6 +66,47 @@ after scaling (accessible to variables in final aesthetics).
 
 To use the second and third stages of data, one need use after\_stat()
 and after\_scale() functions to mark the variable sources.
+
+## Scales and legend
+
+scales is the approach/function to map from data space to aesthetic
+space, for example, what shape or color to use for a value in data
+space.
+
+Legend, on the other hand, provides a visual guide on how to map the
+aesthetic to original data.
+
+For legend, one can use the following functions to tune its appearance
+depending on scale types:
+
+| Scale type                                         | Default guide type | function             |
+|----------------------------------------------------|--------------------|----------------------|
+| continuous scales for colour/fill aesthetics       | colourbar          | guide\_colorbar()    |
+| binned scales for colour/fill aesthetics           | coloursteps        | guide\_coloursteps() |
+| position scales (continuous, binned and discrete)  | axis               | guide\_axis()        |
+| discrete scales (except position scales)           | legend             | guide\_legend()      |
+| binned scales (except position/colour/fill scales) | bins               | guide\_bins()        |
+
+By default, a layer will only appear in legend if the corresponding
+aesthetic is mapped to a variable with aes(). You can override whether
+or not a layer appears in the legend with show.legend: FALSE to prevent
+a layer from ever appearing in the legend; TRUE forces it to appear when
+it otherwise wouldn’t.
+
+ggplot2 tries to use the fewest number of legends to accurately convey
+the aesthetics used in the plot. It does this by combining legends where
+the same variable is mapped to different aesthetics. In order for
+legends to be merged, they must have the same name. So if you change the
+name of one of the scales, you’ll need to change it for all of them. One
+way to do this is by using labs() helper function
+
+If one wants to use different legends for the same scale such as filled
+color, due to the scale used by different variables in different layers,
+one can use the function ggnewscale::new\_scale\_colour(), which
+instructs ggplot2 to initialise a new colour scale: scale and guide
+commands that appear above the new\_scale\_colour() command will be
+applied to the first colour scale, and commands that appear below are
+applied to the second colour scale.
 
 ## Functions
 
@@ -95,6 +141,12 @@ including title (name), marker positions (breaks), labels (labels),
 range (limits), new guide (guide), etc. With these parameters, one can
 change the guide/legend easily, for example, just show certain groups in
 legend and set the same color for several groups.
+
+internally all scale functions in ggplot2 belong to one of three
+fundamental types; continuous scales, discrete scales, and binned
+scales. Each fundamental type is handled by one of three scale
+constructor functions; continuous\_scale(), discrete\_scale() and
+binned\_scale()
 
 ## Theme
 
@@ -153,6 +205,26 @@ One can find details on the elements of theme at
     remain the same size and will thus get smaller relative to the full
     image.
 
+## Efficient programming
+
+One can use certain tricks to improve the efficiency of writing ggplot2
+code, avoid redundant coding.
+
+-   one can use ‘%+%’ to update the underlying data of a plot, so that a
+    new plot based on the new data can be generated, such as
+    `plt %+% newdata`
+
+-   one can use new scales to replace old scales using `+`, because the
+    last scale setting always takes precedence. For example:
+    `plt + scale_x_continuous(limits=c(1,10)) + scale_x_continuous(limits=c(2,5))`
+    is equivalent to `plt + scale_x_continuous(limits=c(2,5))`
+
+-   one can also use new `aes()` to update the aesthetics in a plot. For
+    example, if first plot is generated with
+    `plt<-ggplot(data, aes(x=width, y=size)) + geom_point()`, then one
+    can do `plt + aes(y=area)` to change the `y` aesthetics to the
+    variable `area`.
+
 ## References
 
 1.  Extending ggplot2:
@@ -166,3 +238,5 @@ One can find details on the elements of theme at
 
 4.  Good example of how to dynamically fit text:
     <https://stackoverflow.com/questions/36319229/ggplot2-geom-text-resize-with-the-plot-and-force-fit-text-within-geom-bar?rq=1>
+
+5.  Ggplot2 book: <https://ggplot2-book.org/>
