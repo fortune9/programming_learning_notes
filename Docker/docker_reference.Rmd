@@ -1,0 +1,419 @@
+---
+title: "Quick Reference for Docker"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+    fig_width: 7
+    fig_height: 5
+---
+
+## Introduction
+
+- Docker is a popular containerization tool used to provide software applications with a filesystem that contains everything they need to run. Using Docker containers ensures that the software will behave the same way, regardless of where it is deployed, because its run-time environment is ruthlessly consistent. Singularity is another container tool, which is more secure and used in HPC clusters where docker is not allowed
+
+- Docker is essentially a virtual machine interface, which gives you isolated computing environment, but docker is more friendly and portable than traditional virual machine instance. Docker daemon and client are together called docker engine. The former is run for docker client to access host system kernel functions, while the latter allows users to interact docker daemon. Each docker client is built on a container.
+
+- A docker container can have a base OS, which is the basic operating system for the container. The base OS is independent of the hosting OS that runs the docker engine, so a base OS can be windows while hosting OS is ubuntu, or vice versa. Always, windows container (hosting OS is windows) needs a base OS in the docker image, but linux containers (hosting OS is linux) do not need a base OS in a docker image/container if its base OS is also the same Linux, because it can utilize the host OS kernel directly. One can learn more about base OS and host OS at http://www.floydhilton.com/docker/2017/03/31/Docker-ContainerHost-vs-ContainerOS-Linux-Windows.html.
+
+- As said above, when one wants to build a no-base-OS image, he can use the ‘scratch’ base image to start with. The image is not pullable nor downloadable, and can only be referred to in a Dockerfile. Check this text for details: https://hub.docker.com/_/scratch/. To create a base image, please see here https://docs.docker.com/develop/develop-images/baseimages/.
+
+- Docker images can be created using 2 ways: (1) start with an image/container, make changes, and then save all changes into a new image; (2) using a Dockerfile to give instructions of how to create a new image.
+
+- Docker use a client-server architecture. The client and server can be run in the same machine or in different machine, for the latter, client is connected to a remote docker daemon. The communication between the two is done based on REST API over UNIX sockets or network interface.
+
+
+
+## General
+
+### Useful links
+
+1. Create docker images from containers: https://www.dataset.com/blog/create-docker-image/
+
+2. Save docker images and containers as Tar files: https://dockerlabs.collabnix.com/beginners/saving-images-as-tar/
+
+
+### Installation
+
+To install docker, one can follow the instructions
+[here](https://docs.docker.com/engine/install/).
+
+There are two versions of docker engines, docker-ce and docker-ee, for community and enterprise versions, respectively. Normally, people use the docker-ce version. To install it, one can follow the instruction at https://docs.docker.com/install/linux/docker-ce/ubuntu/ for ubuntu. In ubuntu, actually there is a package ‘docker.io’, which can be also used to install docker enegine by typing ‘apt install docker.io’ too, but this ubuntu-maintained version is often too old.
+
+The same procedure can be used for installing docker
+on WSL2 in Windows 10/11. However, there are some changes
+need be made for the docker daemon to run.
+
+Specifically, for WSL2 Ubuntu 22.04 LTS, one need run
+the following command to choose 'iptables-legacy'.
+
+```bash
+sudo update-alternatives --config iptables
+# then choose 1 for iptables-legacy
+sudo service docker start # start the service
+sudo service docker status # test the service
+```
+
+Thanks to [this post](https://crapts.org/2022/05/15/install-docker-in-wsl2-with-ubuntu-22-04-lts/).
+
+### Settings
+
+- to make current user to run docker without `sudo`, run the following
+    commands
+    
+    ```
+    sudo usermod -aG docker $USER
+    newgrp docker
+    ```
+    
+    Alternatively, one can do
+    
+    ```
+    chmod 666 /var/run/docker.sock
+    ```
+    
+    But this needs to be done every time when docker daemon is restarted.
+
+
+- The docker images, containers, volumes and configuration files are normally stored at /var/lib/docker, which are not automatically removed when docker engine is removed from the host system. To change the default location, one can do the following two steps: 
+    
+    1. open/create the file “/etc/docker/daemon.json”, and then add the following into it:
+    
+    ```
+    {
+    "data-root": "/mnt/newlocation"
+    }
+    ```
+    
+    2. run “sudo systemctl restart docker” to restart the docker engine, and don’t forget “chmod 666 /var/run/docker.sock” to allow normal user run if necessary. Note that one may want to copy old containers/images to new locations, so that you can still use them.
+
+
+## Common commands
+
+### Administrations
+
+* login to docker container registry
+    
+    ```
+    docker login <url to dcr>
+    ```
+
+* list all running/paused containers
+
+    ```
+    docker ps -a
+    ```
+
+* start/stop container
+
+    ```
+    docker stop/start <container-id>
+    ```
+
+* remove an image
+
+    ```
+    docker rmi <image-id>
+    ```
+
+* remove all untagged images
+
+    ```
+    docker system prune
+    ```
+
+* show docker system settings
+
+    ```
+    docker info
+    ```
+    
+* search docker images in docker hub
+
+    ```
+    docker search <keyword>
+    ```
+    
+* build image from dockerfile
+
+    ```
+    docker build -t <tag> -f <dockerfile> /path/to/source
+    ```
+    
+### Images
+
+* List available local images
+
+    ```bash
+    docker images -a
+    ```
+
+* Check image content
+    
+    ```bash
+    docker inspect <image name or id>
+    ```
+
+* Build images
+
+    ```bash
+    # assuming Dockerfile in <PATH>, which contains files to build image
+    docker build -t <image name>[:<tag>] <PATH>
+    # or specify the dockerfile name
+    docker build -t <image name>[:<tag>] -f Dockerfile.new <PATH>
+    ```
+    
+* Save images to a tarball
+
+    ```bash
+    docker save <image name> > myimage.tar
+    ```
+    
+    This command saves an image to a tar file.
+
+* Load image from a tarball
+
+    ```bash
+    docker load < myimage.tar
+    ```
+    
+    And this command is the reverse operation of `docker save`,
+    and it loads the images saved in a tar file into docker images.
+
+* tag an image
+
+    ```
+    docker tag my-old-img fortune9/my-new-img
+    ```
+
+### Containers
+
+* Create a container from an image
+
+    ```bash
+    docker create --name <container-name> <image>[:<tag>]
+    # example
+    docker create --name nfcore_base_2.1 nfcore/base:2.1
+    ```
+    
+    When the specified image is not locally available, it will be searched in
+    and pulled from public repositories such as [dockerhub](https://hub.docker.com).
+
+* List containers
+
+    ```bash
+    # use the option -a to list all containers, including those not running
+    docker container ls -a
+    # or
+    docker ps -a
+    ```
+
+* Start a container
+    
+    ```bash
+    # option makes it interactive
+    docker start -i <container name or id>
+    ```
+
+    This applies when a container is created beforehand. If one uses `docker run`
+    to start and run a container simutaneously, then this step is unnecessary.
+    
+    Note that this method doesn't allow one to specify an entry point.
+
+* Access a running container
+
+    ```bash
+    docker exec -it <container name or id>
+    ```
+
+    One can use the command `docker ps` to list running containers
+    
+* Copy files between host system and a container
+
+    ```bash
+    docker cp <local-file> <container name>:</path/in/container`>
+    ```
+
+* Save changes in a container into an image
+
+    ```bash
+    # save a container to an image; if the image name/tag is omitted,
+    # the resulted tag will have no tags, i.e., 'none'.
+    docker commit <container id or name> [<image-name>[:<tag>]]
+    # use docker images to list new images
+    ```
+    
+    This will save all changes made in the container (excluding the mounted
+    volumes) since it is started,
+    and one can start a new container with generated images.
+    Here is a tutorial of creating docker image under interactive mode: https://altviz.co/articles-archive/using-docker-as-a-development-environment 
+
+* To show the volumes associated with a container, one can use the command below
+    
+    ```
+    docker inspect -f "{{.Mounts}}"  $containerId
+    ```
+
+* show docker container resource usage in real-time
+    
+    ```
+    docker stats <container-id>
+    ```
+
+* Create a new docker volume
+    
+    ```
+    docker volume create newVol
+    ```
+    
+    The new volume ‘newVol’ was put in the folder /var/lib/docker/volumes. For some drivers, such as nfs, one may specify a different folder for the volume.
+
+* Save a container to a tarball
+
+    ```bash
+    docker export <container name or id>  > mycontainer.tar
+    ```
+    
+    Note that this command exports the container's **filesystem** to
+    a file, different from `docker commit`, which saves a container's
+    image architecture. Therefore, one can not directly run the saved tar file
+    like an docker image after importing it, but treats it as a filesystem.
+    
+* Import a tarball into an image
+
+    ```bash
+    docker import mycontainer.tar importedfs:latest
+    # show the newly imported images
+    docker images
+    # run the image like a filesystem, and the valid commands
+    # depend on the source container.
+    docker run -it importedfs /bin/ls
+    ```
+    
+    Note that the `docker import` yields an image of filesystem,
+    so it is not the image creating the original container.
+
+## Dockerfile
+
+### Common commands in dockerfile
+
+Command                                                                            | Description
+FROM, eg: FROM ubuntu:16.04                                                        | starting base image
+LABEL, e.g., LABEL label1=”value 1” label2=”value 2”                               | Add metadata to images flexibly. 
+MAINTAINER, e.g: MAINTAINER ZZ                                                     | image maintainer’s name; deprecated and use LABEL maintainer=”ZZ” instead
+RUN, e.g.: RUN apt-get update                                                      | run a command during image building process, different from CMD
+ADD e.g.: ADD ./hello /dest/in/image                                               | copy a file from host to the docker image. Allow source be an URL or compressed file (will be auto extracted when added to image), a feature COPY does not have.
+ENV e.g.: ENV conf /path/to/configure                                              | define an environment variable, available in the whole environment
+CMD e.g.: CMD [“./start.sh”, “param1”, “param2”]                                   | run these commands when creating a container from the image. Can be only parameters if ENTRYPOINT is set. If multiple CMD directives, only the last one would be used.
+ENTRYPOINT                                                                         | default command to execute when container starts running. If omitted, one can use CMD to specify the default program
+WORKDIR                                                                            | set the current working dir and following commands. Safter than ‘cd’ command. Can be set multiple times.
+USER                                                                               | set user/UID for a new container from the image
+VOLUME: e.g.: VOLUME [“/var/log”, “/home/ubuntu”], or VOLUME /var/log /home/ubuntu | create mounting points for external host/other containers’ directories, allowing the created container access these directories in the docker image. When starting a container, one need specify what host directories are used for mounting these exposed volumes. Accept both json array and plain string as values.
+COPY                                                                               | copy new files/dirs to the file system of the container. Similar to ADD
+EXPOSE, e.g.: EXPOSE 80 666                                                        | specify which network ports a running container will listen to.
+ARG variable                                                                       | Set a variable, which can be referred to with ${variable} in dockerfile, and can be specified as --build-arg variable=”sth” when running docker build. 
+
+
+
+
+## FAQs
+
+- What are the tips to shrink docker images?
+    
+    * reduce the number of layers, i.e, the `RUN` commands
+    * remove unneeded files in the same layer. For example, use
+        the following command to download and remove a file
+        
+        ```
+        RUN wget -O test.txt https://example.com/test.txt && \
+            rm test.txt
+        ```
+        
+        If running `rm test.txt` in a separate 'RUN', this file actually
+        just removed from the filesystem, but remains in docker image.
+    * use conda-pack to pack conda environment. It uses 2-stage building,
+        first creates an environment, and then pack and unpack the environment
+        to new image. Follow the procedure here https://pythonspeed.com/articles/conda-docker-image-size/
+    * use multi-stage building to keep needed files only.
+
+
+- How to generate a dockerfile from a docker image?
+
+    ```
+    docker pull chenzj/dfimage
+    alias dfimage="docker run -v /var/run/docker.sock:/var/run/docker.sock --rm chenzj/dfimage"
+    dfimage IMAGE_ID > Dockerfile
+    ```
+- How to activate conda environment in dockerfile?
+
+    Basically, one need add the following line in the dockerfile
+    before any commands relying on a conda environment.\
+    
+    ```
+    # Make RUN commands use the new environment:
+    SHELL ["conda", "run", "-n", "my-new-env", "/bin/bash", "-c"]
+    ```
+    
+    More discussion on this topic is [here](https://pythonspeed.com/articles/activate-conda-dockerfile/).
+    
+    Alternatively, one can use the following command in the same `RUN`
+    to activate a conda environment (conda activate my-new-env doesn't work):
+    
+    ```
+    source /databricks/conda/bin/activate my-new-env && other-commands
+    ```
+    
+- Some features of deploying conda in databricks
+
+    * Databricks ignores the Docker CMD and ENTRYPOINT primitives.
+    * Databricks runtime injects code to docker container and activate
+        conda environment by itself.
+    * set the environment variable `PATH` in docker may cause conflicts.      It seems that the key is that the first python in the `PATH` must match the python   version in the databricks runtime
+    
+
+- How to attach a host directory to container?
+
+    To access a host directory from a container, one can use the following command 
+    docker run –v /host/dir:/container/dir image-name command-to-run.
+    In this way, when host updates the directory, the changes shows up in container’s directory in real-time. One can use multiple ‘-v’ options to add multiple host directories. Theoretically, one can map multiple host folders to one container folder, in which case, all the files in a folder are combined, but preferably, each host foler should be mapped to a different container folder. In the newer docker engines, the option –mount is preferred over –v, which can be in the form of
+    
+    ```
+    docker run -it --mount src="$(pwd)",target=/test_container,type=bind k3_s3
+    ```
+    
+    Volumes/directories can only be mounted when a container is created: one can’t mount directories to a running container. But one can share data between host and container using ‘docker cp containerId:src dest’.
+    
+    One good example is by using –v ‘/home/my-R-lib:/usr/local/lib/R/host-site-library’, one can make the installed R libraries in host folder /home/my-R-lib available to the docker container.
+    
+- How to exclude unnecessary files in the source fold to be copied when building an image?
+
+    One can use .dockerignore file to exclude files when building an image.
+
+- How to change file permission mode generated by docker container?
+
+    Normally the files generated by docker containter are owned by root, to solve this problem, one should add user in dockerfile, like this example:
+    
+    ```
+    FROM ubuntu
+    
+    ARG USER_ID
+    ARG GROUP_ID
+    
+    RUN addgroup --gid $GROUP_ID user
+    RUN adduser --disabled-password --gecos '' --uid $USER_ID --gid $GROUP_ID user
+    USER user
+    ```
+    And then build the image with the following
+    
+    ```
+	docker build -t myimage \
+ 		 --build-arg USER_ID=$(id -u) \
+ 		 --build-arg GROUP_ID=$(id -g) .
+    ```
+    After that, one can run a container as usual.
+    
+    Alternatively, one can add the option “-u $(id -u):$(id -g)” to the command “docker run”, other than modify the image, but note that this approach may limit access to some files or folders owned by root user in the container.
+
+- How to limit the resource used by a container?
+
+    By default, a container has no resource constraints and can use as much of a given resource as the host’s kernel scheduler allows. One can use argument ‘—memory xxG’ to hard limit the usable memory by a container when running ‘docker run’ (use ‘—memory-reservation’ for soft limit). This value will affect the value stored in the file ‘/sys/fs/cgroup/memory/memory.limit_in_bytes’ of the container system (note that ‘free -m’ in the container will not give this value, but total memory available to a container. See this article https://ops.tips/blog/why-top-inside-container-wrong-memory/ for details). When an application demands more memory than this limit, the container will kill the application. The numbers of CPUs and GPUs can also be controlled with corresponding arguments –cpus and –gpus.
