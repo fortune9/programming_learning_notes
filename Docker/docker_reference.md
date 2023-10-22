@@ -329,34 +329,22 @@ post](https://crapts.org/2022/05/15/install-docker-in-wsl2-with-ubuntu-22-04-lts
 
 ### Common commands in dockerfile
 
-Command \| Description FROM, eg: FROM ubuntu:16.04 \| starting base
-image LABEL, e.g., LABEL label1=”value 1” label2=”value 2” \| Add
-metadata to images flexibly. MAINTAINER, e.g: MAINTAINER ZZ \| image
-maintainer’s name; deprecated and use LABEL maintainer=”ZZ” instead RUN,
-e.g.: RUN apt-get update \| run a command during image building process,
-different from CMD ADD e.g.: ADD ./hello /dest/in/image \| copy a file
-from host to the docker image. Allow source be an URL or compressed file
-(will be auto extracted when added to image), a feature COPY does not
-have. ENV e.g.: ENV conf /path/to/configure \| define an environment
-variable, available in the whole environment CMD e.g.: CMD
-\[“./start.sh”, “param1”, “param2”\] \| run these commands when creating
-a container from the image. Can be only parameters if ENTRYPOINT is set.
-If multiple CMD directives, only the last one would be used. ENTRYPOINT
-\| default command to execute when container starts running. If omitted,
-one can use CMD to specify the default program WORKDIR \| set the
-current working dir and following commands. Safter than ‘cd’ command.
-Can be set multiple times. USER \| set user/UID for a new container from
-the image VOLUME: e.g.: VOLUME \[“/var/log”, “/home/ubuntu”\], or VOLUME
-/var/log /home/ubuntu \| create mounting points for external host/other
-containers’ directories, allowing the created container access these
-directories in the docker image. When starting a container, one need
-specify what host directories are used for mounting these exposed
-volumes. Accept both json array and plain string as values. COPY \| copy
-new files/dirs to the file system of the container. Similar to ADD
-EXPOSE, e.g.: EXPOSE 80 666 \| specify which network ports a running
-container will listen to. ARG variable \| Set a variable, which can be
-referred to with ${variable} in dockerfile, and can be specified as
-–build-arg variable=”sth” when running docker build.
+| Command                                                                              | Description                                                                                                                                                                                                                                                                                                            |
+|--------------------------------------------------------------------------------------|:-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| FROM, eg: FROM ubuntu:16.04                                                          | starting base image                                                                                                                                                                                                                                                                                                    |
+| LABEL, e.g., LABEL label1=”value 1” label2=”value 2”                                 | Add metadata to images flexibly.                                                                                                                                                                                                                                                                                       |
+| MAINTAINER, e.g: MAINTAINER ZZ                                                       | image maintainer’s name; deprecated and use LABEL maintainer=”ZZ” instead                                                                                                                                                                                                                                              |
+| RUN, e.g.: RUN apt-get update                                                        | run a command during image building process, different from CMD                                                                                                                                                                                                                                                        |
+| ADD e.g.: ADD ./hello /dest/in/image                                                 | copy a file from host to the docker image. Allow source be an URL or compressed file (will be auto extracted when added to image), a feature COPY does not have.                                                                                                                                                       |
+| ENV e.g.: ENV conf /path/to/configure                                                | define an environment variable, available in the whole environment                                                                                                                                                                                                                                                     |
+| CMD e.g.: CMD \[“./start.sh”, “param1”, “param2”\]                                   | run these commands when creating a container from the image. Can be only parameters if ENTRYPOINT is set. If multiple CMD directives, only the last one would be used.                                                                                                                                                 |
+| ENTRYPOINT                                                                           | default command to execute when container starts running. If omitted, one can use CMD to specify the default program                                                                                                                                                                                                   |
+| WORKDIR                                                                              | set the current working dir and following commands. Safter than ‘cd’ command. Can be set multiple times.                                                                                                                                                                                                               |
+| USER                                                                                 | set user/UID for a new container from the image                                                                                                                                                                                                                                                                        |
+| VOLUME: e.g.: VOLUME \[“/var/log”, “/home/ubuntu”\], or VOLUME /var/log /home/ubuntu | create mounting points for external host/other containers’ directories, allowing the created container access these directories in the docker image. When starting a container, one need specify what host directories are used for mounting these exposed volumes. Accept both json array and plain string as values. |
+| COPY                                                                                 | copy new files/dirs to the file system of the container. Similar to ADD                                                                                                                                                                                                                                                |
+| EXPOSE, e.g.: EXPOSE 80 666                                                          | specify which network ports a running container will listen to.                                                                                                                                                                                                                                                        |
+| ARG variable                                                                         | Set a variable, which can be referred to with ${variable} in dockerfile, and can be specified as –build-arg variable=”sth” when running docker build.                                                                                                                                                                  |
 
 ## FAQs
 

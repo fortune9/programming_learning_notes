@@ -298,6 +298,7 @@ Thanks to [this post](https://crapts.org/2022/05/15/install-docker-in-wsl2-with-
 ### Common commands in dockerfile
 
 Command                                                                            | Description
+--- | :---
 FROM, eg: FROM ubuntu:16.04                                                        | starting base image
 LABEL, e.g., LABEL label1=”value 1” label2=”value 2”                               | Add metadata to images flexibly. 
 MAINTAINER, e.g: MAINTAINER ZZ                                                     | image maintainer’s name; deprecated and use LABEL maintainer=”ZZ” instead
