@@ -1188,6 +1188,15 @@ workflow {
 }
 ``` 
 
+**Same-name workflows and processes**
+
+Also note that the same-named process can't be included in the same workflow,
+but can be in different workflows.
+
+One can't call the same workflow more than once in the same workflow context
+(even different input parameters). This is valid because if the same workflow
+is called twice and then it is confusing from which call the results come from.
+
 ### Module
 
 A module can contain the definition of a function, process and workflow definitions. And module
