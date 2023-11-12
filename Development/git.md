@@ -1,7 +1,7 @@
 Git usage summary
 ================
 Zhenguo Zhang
-July 10, 2023
+November 11, 2023
 
 -   [Git architecture](#git-architecture)
     -   [Important terms](#important-terms)
@@ -100,7 +100,11 @@ git diff
 git diff HEAD
 # find the changes between the index and the repository
 git diff --cached # --cached is equivalent to --staged
+# find the difference between a local branch and remote branch
+git diff localbranch..origin/remotebranch
 ```
+
+Add option –name-only if one wants only filenames.
 
 Similarly, one can also check the changes between two commits
 

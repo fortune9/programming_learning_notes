@@ -99,7 +99,11 @@ git diff
 git diff HEAD
 # find the changes between the index and the repository
 git diff --cached # --cached is equivalent to --staged
+# find the difference between a local branch and remote branch
+git diff localbranch..origin/remotebranch
 ```
+
+Add option --name-only if one wants only filenames.
 
 Similarly, one can also check the changes between two commits
 
