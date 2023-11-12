@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-October 04, 2023
+November 11, 2023
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -1195,6 +1195,16 @@ workflow {
     wf1.out.view() // the only way to view workflow outputs
 }
 ```
+
+**Same-name workflows and processes**
+
+Also note that the same-named process can’t be included in the same
+workflow, but can be in different workflows.
+
+One can’t call the same workflow more than once in the same workflow
+context (even different input parameters). This is valid because if the
+same workflow is called twice and then it is confusing from which call
+the results come from.
 
 ### Module
 
