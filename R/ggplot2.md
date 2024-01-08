@@ -1,7 +1,7 @@
 Notes on ggplot2
 ================
 Zhenguo Zhang
-October 11, 2023
+January 07, 2024
 
 -   [Aesthetic](#aesthetic)
 -   [Scales and legend](#scales-and-legend)
@@ -11,6 +11,7 @@ October 11, 2023
     -   [Functions](#functions-1)
 -   [Important facts](#important-facts)
 -   [Efficient programming](#efficient-programming)
+-   [Tidy evaluation](#tidy-evaluation)
 -   [References](#references)
 
 All ggplot2 objects are built using the ggproto system of object
@@ -225,6 +226,35 @@ code, avoid redundant coding.
     can do `plt + aes(y=area)` to change the `y` aesthetics to the
     variable `area`.
 
+## Tidy evaluation
+
+Since ggplot2 3.0.0, it has supported [tidy
+evaluation](https://www.tidyverse.org/blog/2018/07/ggplot2-tidy-evaluation/).
+In tidy evaluation, all quoting functions are actually quasiquoting
+functions because they also support unquoting. Where quotation is the
+act of capturing an unevaluated expression, unquotation is the ability
+to selectively evaluate parts of an otherwise quoted expression.
+Together, this is called quasiquotation.
+
+You can now use quasiquotation in aes(), facet\_wrap(), and
+facet\_grid(). For aes(), quasiquotation (!!, !!!, :=) replaces aes\_()
+and aes\_string() (though these functions are being soft deprecated, and
+will be around for a while).
+
+enquo() \| quote a variable \| any function !! \| unquote a variable \|
+any function vars() \| supply variables or expression \| used in
+facet\_wrap() or facet\_grid() quo\_name() \| quote the name of a
+variable \| working with := to unquote enexpr() \| similar to enquo(),
+but affected by enclosed environment variables \|
+
+There are two types of functional arguments:
+
+-   evaluated argument: it obeys R’s usual evaluation rules, such as the
+    argument to `paste()`
+
+-   quoted argument: it is captured by the function, and processed in
+    some custom way, such as arguments to `library()`
+
 ## References
 
 1.  Extending ggplot2:
@@ -240,3 +270,5 @@ code, avoid redundant coding.
     <https://stackoverflow.com/questions/36319229/ggplot2-geom-text-resize-with-the-plot-and-force-fit-text-within-geom-bar?rq=1>
 
 5.  Ggplot2 book: <https://ggplot2-book.org/>
+
+6.  Tidy evaluation:
