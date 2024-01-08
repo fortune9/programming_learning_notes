@@ -1,7 +1,7 @@
 Git usage summary
 ================
 Zhenguo Zhang
-November 11, 2023
+January 07, 2024
 
 -   [Git architecture](#git-architecture)
     -   [Important terms](#important-terms)
@@ -116,8 +116,10 @@ Or one can compare two branches
 
 ``` bash
 git diff <from-branch> <to-branch>
-To compare a specific file, appending the file path
+#To compare a specific file, appending the file path
 git diff <from-branch> <to-branch> -- </path/to/file>
+# to compare with a remote branch, for example
+git diff main origin/main --name-only
 ```
 
 Actually, the output of `git diff` can be put into a file, which can be
@@ -199,10 +201,17 @@ git stash pop # re-gain the changes.
 
 ### Repositories
 
-1.  Clone a repo
+-   Clone a repo
 
 ``` git
-git clone 
+# E.g.
+git clone <git/url>
+```
+
+-   Clone a branch
+
+``` git
+git clone <git/url> --single-branch --branch <branch/name>
 ```
 
 ### Tags
