@@ -85,6 +85,48 @@ Here are for tools such as sed, awk, etc.
     tree -L 2 <folder> 
     ```
 
+- Copy a file with its parent folders
+    
+    ```
+    cp --parents a/b/c existing_dir
+    ```
+    
+    This copies the file `a/b/c' to `existing_dir/a/b/c', and the missing
+    intermediate folders would be created.
+
+
+- File globbing
+
+    One can use the following patterns to match files:
+    
+    Pattern     |    Description
+    ---         |    :---
+    * 	        |    Match zero or more characters
+    ? 	        |    Match any single character
+    [...] 	    |    Match any of the characters in a set
+    {abc,def}   |   Match any strings in a set
+    ?(patterns) |	Match zero or one occurrences of the patterns (extglob)
+    *(patterns) |	Match zero or more occurrences of the patterns (extglob)
+    +(patterns) |	Match one or more occurrences of the patterns (extglob)
+    @(patterns) |	Match one occurrence of the patterns (extglob)
+    !(patterns) |	Match anything that doesn't match one of the patterns (extglob)
+    
+    For example, one can use the following to match any files ending with
+    jpg or gif
+    
+    ```bash
+    ls *.?(jpg|gif)
+    # equivalent to
+    ls *.{jpg,gif}
+    ```
+    
+    Note the pattern modifiers for extended globbing are put ahead of patterns,
+    different from the regular expression in other language such as Perl and Python.
+    These extended patterns can also be used in string operations such as
+    "%", "##", "//". 
+    
+    One can find more examples at https://www.linuxjournal.com/content/pattern-matching-bash
+    
 ## Compilation
 
 1. When a certain lib file can't be found, one can use the following
