@@ -1,7 +1,7 @@
 Git usage summary
 ================
 Zhenguo Zhang
-January 07, 2024
+January 25, 2024
 
 -   [Git architecture](#git-architecture)
     -   [Important terms](#important-terms)
@@ -124,6 +124,15 @@ git diff main origin/main --name-only
 
 Actually, the output of `git diff` can be put into a file, which can be
 used as patch to apply to the file (see `git apply` for more details).
+
+To get the messages of the different comments between two branches, one
+can use the following command:
+
+``` bash
+git log <old-branch>..<new-branch> --oneline
+# for example, to get the commits missed by local branch.
+git log main..origin/main --oneline
+```
 
 -   Revert changes
 
@@ -252,6 +261,12 @@ a repo between two formal releases (i.e., tags).
     git push --tags
     ```
 
+-   checkout from a tag
+
+    ``` git
+    git checkout tags/<tag> -b <new_branch>
+    ```
+
 ### Branches
 
 -   List branches
@@ -298,6 +313,12 @@ a repo between two formal releases (i.e., tags).
 
     ``` git
     git push origin :<remote-branch>
+    ```
+
+-   Delete local cache of deleted remote branches
+
+    ``` git
+    git fetch -p
     ```
 
 -   Pull from remote branches
