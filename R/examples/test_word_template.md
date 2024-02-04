@@ -11,6 +11,7 @@ Test word template
 -   [New section](#new-section)
 -   [Use fenced\_divs to specify a certain
     style](#use-fenced_divs-to-specify-a-certain-style)
+-   [Final output](#final-output)
 
 This is a test document to see how word template affects the output of
 the Rmarkdown. This corresponds to `First Paragraph`.
@@ -56,3 +57,7 @@ providing the parameter `reference_docx`.
 This is a block text controlled with custom style ‘Block Text’.
 
 </div>
+
+## Final output
+
+Check the file \[./test\_word\_template.docx\]

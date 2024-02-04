@@ -52,4 +52,9 @@ This is a block text controlled with
 custom style 'Block Text'.
 :::
 
+## Final output
+
+Check the file [./test_word_template.docx]
+
+
 
