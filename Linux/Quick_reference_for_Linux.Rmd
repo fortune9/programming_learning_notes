@@ -206,4 +206,6 @@ Here are for tools such as sed, awk, etc.
 
 - lscpu or nproc: Show CPUs’ hardware information
 
+- lsb_release -a: show the system information such as version and name
+
 

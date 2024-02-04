@@ -196,3 +196,6 @@ Here are for tools such as sed, awk, etc.
 -   printf “%.3f” 12.1234: Format the output
 
 -   lscpu or nproc: Show CPUs’ hardware information
+
+-   lsb\_release -a: show the system information such as version and
+    name
