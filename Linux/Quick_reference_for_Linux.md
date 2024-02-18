@@ -22,6 +22,26 @@ Here are for tools such as sed, awk, etc.
         patVar="hello$"
         "string" ~ patVar
 
+-   join two files based on a common field
+
+    One can use `join` to merge two files based on a common field. The
+    two files need to be pre-sorted on the common field. In default, it
+    only outputs rows have matching fields of the two input files. To
+    output all rows, including those don’t have a match in the other
+    file, add the option `-a` and `-o`,for example:
+
+    ``` bash
+    join -1 1 -2 1 -t $'\t' -a 1 -a 2 -o 0,1.2,2.2 test1.tsv test2.tsv 
+    ```
+
+    Explanation:
+
+    -   -1 1 -2 1: use the 1st field from both file as common fields
+    -   -a 1 -a 2: output unmatching rows from both files
+    -   -o 0,1.2,2.2: output common field, 2nd field of 1st file and 2nd
+        field of 2nd file
+    -   -t $’: field separator is a tab
+
 ### Shell
 
 -   Do not use
@@ -114,6 +134,13 @@ Here are for tools such as sed, awk, etc.
 
     One can find more examples at
     <https://www.linuxjournal.com/content/pattern-matching-bash>
+
+-   Untar a file into a folder
+
+    ``` bash
+    mkdir targetDir
+    tar -xzf test.tar.gz -C targetDir --strip-components=1
+    ```
 
 ## Compilation
 
