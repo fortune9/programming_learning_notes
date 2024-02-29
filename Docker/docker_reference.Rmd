@@ -139,6 +139,16 @@ Thanks to [this post](https://crapts.org/2022/05/15/install-docker-in-wsl2-with-
     ```
     docker build -t <tag> -f <dockerfile> /path/to/source
     ```
+
+    One can use the following command to extend build capabilities with
+    *BuildKit*
+    
+    ```
+    docker buildx build  -t <tag> -f <dockerfile> /path/to/source
+    ```
+    
+    One application of using buildx is to pass secrets to the docker building
+    process. See "How to clone a private repo in Dockerfile" in [FAQs](#faqs).
     
 ### Images
 
@@ -218,7 +228,13 @@ Thanks to [this post](https://crapts.org/2022/05/15/install-docker-in-wsl2-with-
     This applies when a container is created beforehand. If one uses `docker run`
     to start and run a container simutaneously, then this step is unnecessary.
     
+    ```bash
+    docker run -i <image-id/name> <arguments to entrypoint>
+    ```
+    
     Note that this method doesn't allow one to specify an entry point.
+    
+    
 
 * Access a running container
 
@@ -305,8 +321,8 @@ MAINTAINER, e.g: MAINTAINER ZZ                                                  
 RUN, e.g.: RUN apt-get update                                                      | run a command during image building process, different from CMD
 ADD e.g.: ADD ./hello /dest/in/image                                               | copy a file from host to the docker image. Allow source be an URL or compressed file (will be auto extracted when added to image), a feature COPY does not have.
 ENV e.g.: ENV conf /path/to/configure                                              | define an environment variable, available in the whole environment
-CMD e.g.: CMD [“./start.sh”, “param1”, “param2”]                                   | run these commands when creating a container from the image. Can be only parameters if ENTRYPOINT is set. If multiple CMD directives, only the last one would be used.
-ENTRYPOINT                                                                         | default command to execute when container starts running. If omitted, one can use CMD to specify the default program
+CMD e.g.: CMD [“./start.sh”, “param1”, “param2”]                                   | run these commands when creating a container from the image. Will be the parameters if ENTRYPOINT is set. If multiple CMD directives, only the last one would be used.
+ENTRYPOINT                                                                         | default command to execute when container starts running. If omitted, one can use CMD to specify the default program. The entrypoint can be overriden command line using option --entrypoint "new-command".
 WORKDIR                                                                            | set the current working dir and following commands. Safter than ‘cd’ command. Can be set multiple times.
 USER                                                                               | set user/UID for a new container from the image
 VOLUME: e.g.: VOLUME [“/var/log”, “/home/ubuntu”], or VOLUME /var/log /home/ubuntu | create mounting points for external host/other containers’ directories, allowing the created container access these directories in the docker image. When starting a container, one need specify what host directories are used for mounting these exposed volumes. Accept both json array and plain string as values.
@@ -314,7 +330,36 @@ COPY                                                                            
 EXPOSE, e.g.: EXPOSE 80 666                                                        | specify which network ports a running container will listen to.
 ARG variable                                                                       | Set a variable, which can be referred to with ${variable} in dockerfile, and can be specified as --build-arg variable=”sth” when running docker build. 
 
+Note: Entrypoint has two forms: shell form and exec form. Shell form
+doesn't accept extra arguments from the command line, while exec form
+ doesn't invoke shell command. See more here
+https://kinsta.com/blog/dockerfile-entrypoint/
 
+### Parser directives
+
+Parser directives are optional, and affect the way in which subsequent lines
+in a Dockerfile are handled. Parser directives don't add layers to the build,
+and don't show up as build steps. Parser directives are written as a special
+type of comment in the form
+# directive=value
+
+The following parser directives are supported:
+
+- syntax
+- escape
+
+The often used syntax directive is 
+
+    > # syntax=docker/dockerfile:1
+
+which causes BuildKit to pull the latest stable version of the Dockerfile syntax before the build.
+
+
+The requirements for parser directives:
+
+- Appear as the first rows, before any other commands or comments.
+
+- A single directive may only be used once.
 
 
 ## FAQs
@@ -363,6 +408,57 @@ ARG variable                                                                    
     ```
     source /databricks/conda/bin/activate my-new-env && other-commands
     ```
+    
+    Note that one need to replace 'source' with '.' if the shell is 'sh'.
+
+    I also tried the following options and they don't work:
+    
+    - add `SHELL ["/bin/bash", "--login", "-c"]` before running commands in conda packages
+    - set environment variable using `ENV BASH_ENV ~/.bashrc` by following instruction [here](https://geniac.readthedocs.io/en/latest/conda.html)
+    
+    The above two methods are ensentially to trigger `~/.bashrc` which contains `conda activate my-new-env`,
+    but they didn't work.
+
+- How to activate conda environment when starting a container?
+    
+    This is different from using the conda environment during image building
+    process. Here we want a conda environment activated when the container
+    is started.
+    
+    1. One can use an entrypoint.sh to activate the environment:
+        
+        Put the following content into `entrypoint.sh`, and set
+        this file as entrypoint in Dockerfile.
+        
+        ```bash
+        #!/bin/bash
+        source /path/to/conda/activate my-new-env # replace values with your real ones
+        exec "$@" # this is needed
+        ```
+        
+        Then one can run the docker image as below:
+        
+        ```
+        docker run -i my-image -c 'echo $PATH'
+        ```
+        
+        This will check the `PATH` variable in the container.
+    
+    2. Start the container by triggering ~/.bashrc file.
+
+        For this to work, one need add 'conda activate my-new-env'
+        to the file `~/.bashrc` during image building process.
+        
+        However, this file won't be triggered unless one starts
+        the container using login shell. To do so, one need to
+        use the option '-t', e.g.,
+        
+        ```
+        docker run -it my-image /bin/bash
+        ```
+        
+        Note that ENTRYPOINT ["/bin/bash", "--login", "-c"] doesn't read ~/.bashrc
+        when using 'docker run -i', unless option `-t` is added.
     
 - Some features of deploying conda in databricks
 
@@ -418,3 +514,50 @@ ARG variable                                                                    
 - How to limit the resource used by a container?
 
     By default, a container has no resource constraints and can use as much of a given resource as the host’s kernel scheduler allows. One can use argument ‘—memory xxG’ to hard limit the usable memory by a container when running ‘docker run’ (use ‘—memory-reservation’ for soft limit). This value will affect the value stored in the file ‘/sys/fs/cgroup/memory/memory.limit_in_bytes’ of the container system (note that ‘free -m’ in the container will not give this value, but total memory available to a container. See this article https://ops.tips/blog/why-top-inside-container-wrong-memory/ for details). When an application demands more memory than this limit, the container will kill the application. The numbers of CPUs and GPUs can also be controlled with corresponding arguments –cpus and –gpus.
+    
+    
+- How to clone a private repo in Dockerfile?
+
+    When one need to download some code from a private repo when building
+    a docker image using Dockerfile, but doesn't want to expose any secrets
+    in the final image, it has two options:
+    
+    + use multi-stage building: use the first stage to clone code by providing the
+        secrets and copy the code from the first stage to the second stage so that
+        the secrets would not be included in the final image. This is because
+        When working with multi-stage builds, you are building multiple Docker images
+        in a single Dockerfile, but only the last one is the real result. The other
+        ones are there to support it. Anything but the final image don’t leave any traces.
+        
+    + use `docker buildx build` to pass secrets into the building process. Note that this
+        process allows only ssh based access to git repos. Here are the
+        steps:
+        
+        1. add ssh key to agent
+            
+            ```
+            eval $(ssh-agent)
+            ssh-add ~/.ssh/id_rsa_github # replace this ssh key file with your own file
+            ```
+        
+        2. use `--mount=type=ssh` in Dockerfile to access the added ssh key
+        
+            ```
+            # add the repo host to know_hosts
+            RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+            # clone the repo
+            RUN --mount=type=ssh,id=github \
+                git clone git@github.com:fortune9/bioinfo-tools.git 
+            ```
+            
+            Note the the value to the option `id` must match the one 
+            provided by `docker buildx` (see below).
+        
+        3. run the build command
+        
+            ```
+            docker buildx build --ssh github=$SSH_AUTH_SOCK -f Dockerfile .
+            ```
+        
+        One can find information on how to access other secrets such as AWS credentials
+        from this [page](https://docs.docker.com/reference/dockerfile/#run---mounttypesecret).
