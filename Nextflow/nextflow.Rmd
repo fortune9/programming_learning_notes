@@ -569,8 +569,10 @@ option | description
 -with-report | create execution report
 -with-trace | create file trace.txt containing running information for each task
 -with-timeline | show the time used by each task.
--with-dag | render workflow using direct acyclic graph, needing Graphviz installed.
+-with-dag | render workflow using direct acyclic graph, needing Graphviz installed if format other than html is needed.
 -w | the folder in which tasks are run, default is 'work'.
+-preview | go through the pipeline without running any tasks, good to generate workflow graph with the option -with-dag
+
 
 
 Note when specififying parameters, one need use double dashes, such as
@@ -907,6 +909,9 @@ profiles {
 ```
 
 The *standard* profile is the default one, and others can be specified with the option '-profile'.
+
+One can specify multiple profiles, such as `-profile cluster,standard`, then the one appearing later
+in the config file (here `cluster`) will override the same options in the earlier profiles.
 
 ## Cloud deployment
 
@@ -1710,7 +1715,20 @@ Finally the result is printed using the view operator.
             display_map(myMap)
         }
         ```
-        
+
+17. How does nextflow trigger commands in docker container?
+
+    When one uses container to run processes, nextflow uses the following command
+    to trigger a task:
+    
+    ```bash
+    docker run -i --cpu-shares xxx --memory xxxm -e "NXF_DEBUG=${NXF_DEBUG:=0}" \
+        -e "NXF_OWNER=$(id -u):$(id -g)" -v /src/path:/target/path -w "$PWD" \
+        --name $NXF_BOXID my_image:latest /bin/bash -c \
+        "eval $(nxf_container_env); /bin/bash /path/to/.command.run nxf_trace"
+    ```
+    
+    This format doesn't trigger login shell, so the file `~/.bashrc` is not read.
         
 ## Resources
 

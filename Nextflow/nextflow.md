@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-November 11, 2023
+February 28, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -576,17 +576,18 @@ Some bultin functions:
 
 ## nextflow running options
 
-| option         | description                                                                       |
-|----------------|-----------------------------------------------------------------------------------|
-| -resume        | continue from where last run stopped                                              |
-| -process.echo  | print out the result from script blocks                                           |
-| -with-docker   | use the docker environment setup in the nextflow.config file                      |
-| -with-conda    | activate a conda environment by specifying an environment recipe file or its name |
-| -with-report   | create execution report                                                           |
-| -with-trace    | create file trace.txt containing running information for each task                |
-| -with-timeline | show the time used by each task.                                                  |
-| -with-dag      | render workflow using direct acyclic graph, needing Graphviz installed.           |
-| -w             | the folder in which tasks are run, default is ‘work’.                             |
+| option         | description                                                                                                  |
+|----------------|--------------------------------------------------------------------------------------------------------------|
+| -resume        | continue from where last run stopped                                                                         |
+| -process.echo  | print out the result from script blocks                                                                      |
+| -with-docker   | use the docker environment setup in the nextflow.config file                                                 |
+| -with-conda    | activate a conda environment by specifying an environment recipe file or its name                            |
+| -with-report   | create execution report                                                                                      |
+| -with-trace    | create file trace.txt containing running information for each task                                           |
+| -with-timeline | show the time used by each task.                                                                             |
+| -with-dag      | render workflow using direct acyclic graph, needing Graphviz installed if format other than html is needed.  |
+| -w             | the folder in which tasks are run, default is ‘work’.                                                        |
+| -preview       | go through the pipeline without running any tasks, good to generate workflow graph with the option -with-dag |
 
 Note when specififying parameters, one need use double dashes, such as
 *–greeting nextflow* to provide value for params.greeting.
@@ -917,6 +918,10 @@ activated/chosen when launching a pipeline execution by using the
 
 The *standard* profile is the default one, and others can be specified
 with the option ‘-profile’.
+
+One can specify multiple profiles, such as `-profile cluster,standard`,
+then the one appearing later in the config file (here `cluster`) will
+override the same options in the earlier profiles.
 
 ## Cloud deployment
 
@@ -1723,6 +1728,21 @@ the mix operator. Finally the result is printed using the view operator.
             display_map(myMap)
         }
         ```
+
+17. How does nextflow trigger commands in docker container?
+
+    When one uses container to run processes, nextflow uses the
+    following command to trigger a task:
+
+    ``` bash
+    docker run -i --cpu-shares xxx --memory xxxm -e "NXF_DEBUG=${NXF_DEBUG:=0}" \
+        -e "NXF_OWNER=$(id -u):$(id -g)" -v /src/path:/target/path -w "$PWD" \
+        --name $NXF_BOXID my_image:latest /bin/bash -c \
+        "eval $(nxf_container_env); /bin/bash /path/to/.command.run nxf_trace"
+    ```
+
+    This format doesn’t trigger login shell, so the file `~/.bashrc` is
+    not read.
 
 ## Resources
 
