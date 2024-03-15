@@ -6,6 +6,7 @@ Quick Reference for Linux
     -   [Shell](#shell)
 -   [File system](#file-system)
 -   [Compilation](#compilation)
+-   [Conda](#conda)
 -   [Other useful commands](#other-useful-commands)
 
 ## Programming
@@ -204,6 +205,18 @@ Here are for tools such as sed, awk, etc.
 
     where the first commands generated position-independent-code
     objects, and the last one creates the library.
+
+## Conda
+
+-   channel priority is so important, if not set right, some packages
+    would not be installed.
+
+    to show the channel order, run `conda config --show channels`
+
+    To prepend a channel, `conda config --prepend channels channel_name`
+
+    To ask conda to follow the priority order strictly, use
+    `conda config --system --set channel_priority strict`
 
 ## Other useful commands
 
