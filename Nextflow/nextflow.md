@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-February 28, 2024
+March 14, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -615,7 +615,15 @@ A summary of the major directives is as follows:
 | errorStrategy | errorStrategy ‘ignore’                      | how to handle errors occured in a process. Available options are: terminate (terminate the whole pipeline immediately), finish (terminate after submitted jobs completed), ignore (ignore the error), retry (rerun the errored process).                   |
 | maxErrors     | maxErrors 3                                 | the number of retries for the whole process across all tasks when errorStrategy is set to ‘retry’.                                                                                                                                                         |
 | maxRetries    | maxRetries 2                                | the number of retries for a task (different from maxErrors) when errorStrategy is set to ‘retry’.                                                                                                                                                          |
-| label         | label ‘big\_mem’                            |                                                                                                                                                                                                                                                            |
+| label         | label ‘big\_mem4’                           |                                                                                                                                                                                                                                                            |
+| maxForks      | maxForks 4                                  | the number of tasks for this process to run in parallel.                                                                                                                                                                                                   |
+
+Also note that all directives can be assigned dynamically such as using
+ternary conditions, except the following three:
+
+-   executor
+-   label
+-   maxForks
 
 ## operators
 
@@ -882,6 +890,13 @@ etc) for processes or pipelines:
 1.  “withName: procName {}”: set attributes for processes by name.
     ‘procName’ can be regular expression such as ‘abc\|def’ (matching
     two processes) and ‘!bar’ (not process ‘bar’).
+
+    The *withName* selector applies to a process even when it is
+    included from a module under an alias. For example,
+    `withName: hello` will apply to any process originally defined as
+    *hello*, regardless of whether it is included under an alias.
+    Similarly, it will not apply to any process not originally defined
+    as *hello*, even if it is included under the alias *hello*.
 
 2.  “withLabel: ‘procLabel’ {}”: set attributes for processes by label,
     also accept regular expression as above.
@@ -1743,6 +1758,151 @@ the mix operator. Finally the result is printed using the view operator.
 
     This format doesn’t trigger login shell, so the file `~/.bashrc` is
     not read.
+
+18. How to solve the following errors:
+
+    -   DockerTimeoutError: Could not transition to created; timed out
+        after waiting 4m0s
+    -   CannotInspectContainerError: Could not transition to inspecting;
+        timed out after waiting 30s
+
+    The cause: such errors are usually caused by the read/write of
+    **many big** datasets on EC2 instance which uses an EBS volume. It
+    is because such EBS volumes are designed to read/write not too
+    frequent, constrained by available burst balance. When
+    reading/writing big files such as from S3 buckets, the burst balance
+    drops quickly to zero, and causes the above errors. One can find
+    more explanation
+    [here](https://repost.aws/knowledge-center/batch-docker-timeout-error)
+
+    The solutions:
+
+    1.  increases the EBS volume size associated with the EC2 instance.
+    2.  reduce the number of applications read/write from S3
+        simutaneously. For the situation of AWS batch, multiple
+        containers may run on one EC2 instance, will exhaust burst
+        balance quickly. Therefore, one can choose an instance with
+        smaller number of CPUs and/or memory, so aws batch would not
+        assign many tasks on one EC2 instance.
+    3.  Change the configuration `aws.batch.maxParallelTransfers` to a
+        smaller number such as 5.
+    4.  Decrease the job submission rates such as
+        `executor.submitRateLimit` to ‘20/1min’.
+    5.  use other high I/O file systems such as io1.
+
+    One need to combine solution 1 to 4 to solve the problems in aws
+    batch. And the parameters have been tuned multiple times.
+
+19. How to attach an S3 volume to an AWS batch container in nextflow?
+
+    One can use the option `aws.batch.volumes` to attach host folders to
+    containers dispatched by AWS batch. To do so, one need the following
+    steps:
+
+    1.  creating an AMI to mount S3 buckets on boot. To this end, one
+        need run the following steps:
+
+        1.  start an EC2 instance with the correct settings. For
+            nextflow use, one can refer to
+            <https://www.nextflow.io/docs/latest/awscloud.html#custom-ami>.
+            The instance need to have the correct IAM roles for
+            accessing needed S3 buckets.
+
+        2.  in the EC2 instance, download the software
+            [goofys](https://github.com/kahing/goofys) and put it into a
+            folder, say /home/ec2-user/bin/goofys
+
+        3.  add the following line into the file `/etc/fstab`
+
+                /home/ec2-user/bin/goofys#s3bucket   /mnt/mountpoint        fuse     _netdev,allow_other,--file-mode=0666,--dir-mode=0777    0       0
+
+            Note that the first portion provides the path to the
+            executable `goofys`.
+
+            Then test it with the following command to see whether the
+            S3 bucket is attached:
+
+                sudo mount -a
+
+            If any errors, one can use the following command to see the
+            details:
+
+                goofys -f <s3-bucket> </path/to/mount/on/host>
+
+            Make sure the system `fuse` package is installed.
+
+        4.  reboot the EC2 to see whether the S3 buckets are
+            automatically attached.
+
+        5.  if successful, create a new AMI from the EC2 instance, and
+            record the AMI-ID.
+
+    2.  Create a new AWS batch compute environment and use the new
+        AMI-ID to override the default AMI in the settings, and then
+        create a new batch queue to use the new compute environment.
+        Note that the compute environment need to choose the right IAM
+        role for starting EC2 instances so that the new instances have
+        the access to the S3 buckets mentioned above.
+
+    3.  in the file `nextflow.config`, add the following settings:
+
+            aws.batch.volumes = ['/host/path1:/container/path1', '/host/path2:/container/path2']
+            process.queue = <newly created queue in previous step>
+
+    4.  Now one can refer to the attached host folders in containers
+        using the the specified folders such as ‘/container/path1’ when
+        writing nextflow processes.
+
+    5.  One can start to run nextflow pipeline based on the
+        configuration.
+
+20. How to boost AWS batch performance
+
+    The recommended setup for maximum performance with AWS Batch is to
+    mount an NVMe disk as the temporary folder and run the pipeline with
+    the scratch directive set to false to avoid stage-out transfer time.
+    You can accomplish this by adding the following lines to your
+    Nextflow config file:
+
+        ```
+        aws.batch.volumes = '/path/to/ec2/nvme:/tmp'
+        process.scratch = false
+        ```
+
+    A related configuration for docker container is `docker.temp`, which
+    can be set to a host path which can be used as ‘/tmp’ folder in the
+    container (the /tmp folder in container is used by nextflow to run
+    tasks). Not sure that this has the same effect as the option
+    `aws.batch.volumes`.
+
+21. Can I convert a nextflow channel to a groovy object?
+
+    No. There is no way to do it, because they are totally different
+    objects. I also tried to save a channel’s content into a file via
+    the operator `collectFile()` and then used a groovy function to read
+    the content from the file. However, this would not work in a
+    workflow, because the reading of this file is not well coordinated
+    with generating the file (i.e., reading can happen before
+    generating). Therefore, it is hard to work out.
+
+22. How to end a workflow early?
+
+    Use the keyword `return` on a single line to exit from a workflow
+    without error code.
+
+23. Can I call nextflow in a bash for loop?
+
+    Yes. If one calls `nextflow run` in a bash for loop, then each
+    pipeline run will finish sequentially, i.e., move to next step after
+    the current one finishes.
+
+24. How does nextflow call a docker container?
+
+    It triggered docker containers using the following format:
+
+        nxf_launch() {
+        docker run -i --cpu-shares 6144 --memory 49152m -e "NXF_DEBUG=${NXF_DEBUG:=0}" -e "NXF_OWNER=$(id -u):$(id -g)" -v /home/ubuntu/work:/home/ubuntu/work -w "$PWD" --name $NXF_BOXID my_image:tag /bin/bash -c "eval $(nxf_container_env); /bin/bash /home/ubuntu/work/Projects/test/nf_work/a5/6d782b9bc26da73cb71fa9b94b23ae/.command.run nxf_trace"
+        }
 
 ## Resources
 
