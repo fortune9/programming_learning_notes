@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-March 14, 2024
+March 21, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -44,6 +44,7 @@ March 14, 2024
     -   [Pipes](#pipes)
 -   [Tricks](#tricks)
 -   [Caveats](#caveats)
+-   [Cool facts](#cool-facts)
 -   [FAQs](#faqs)
 -   [Resources](#resources)
 
@@ -647,7 +648,7 @@ A summary of useful operators:
 | set         | Channel.from(1,2,34).set(numCh)               | set channel name                                                                                                                                                          |
 | cross       | srcCh.cross(targetCh)                         | output only the source items whose keys (default: 1st item) have a match in the target channel. Like R’s merge() function.                                                |
 | subscribe   | ch.subscribe { println “Got: $it” }           | allow user to define a function to run on each emit element.                                                                                                              |
-| collectFile | ch.collectFile(name:“outfile.txt”)            | store all emited elements into the specified file.                                                                                                                        |
+| collectFile | ch.collectFile(name:“outfile.txt”)            | store all emited elements into the specified file. can be used for both saving maps/lists as well as concatenating files.                                                 |
 | combine     | ch1.combine(ch2)                              | combine two channels in the form of cartesian product, or based on a key given by option ‘by: pos’.                                                                       |
 | concat      | ch1.concat(ch2,ch3)                           | concatenate the elements in multiple channels into one.                                                                                                                   |
 
@@ -1527,6 +1528,41 @@ the mix operator. Finally the result is printed using the view operator.
 
     -   If one file is operated by a Channel, this file seems not
         operable by the *Path* operation in the same nextflow process.
+
+## Cool facts
+
+1.  When resuming a pipeline run by using a new working directory, it
+    will not invalidate the finished tasks. For example, if one uses one
+    s3 bucket for a run, and then use another s3 bucket to resume the
+    run, then finished tasks will just read from cache.
+
+2.  In nextflow workflow and process definitions, use the ‘def’ define
+    local variables as much as possible, unless the variables are
+    expected to be global. The variables in the map {} closure without
+    `def` are also global variables. These same-name variables may be
+    modified by other channels and process, leading to racing conditions
+    among global variables.
+
+    Related to this, when a pipeline uses a map to propogate meta
+    information along the pipeline, it had better not to modifying the
+    map, because such modification may interfere with other processes
+    using the same map. This will cause troubles, and become obvious
+    that some finished tasks are re-executed when resuming. Therefore,
+    the suggested solution is to use the operator ‘+’ to create a new
+    map when necessary or `clone()` it before modification.
+
+3.  Note that the `join` operator is different from the SQL’s join,
+    because it expects unique key values from each channel, and each
+    time a matched key is found between two channels, the key is emitted
+    and consumed and it won’t wait for other items with the same key. By
+    contrast, the operator `combine` allows duplicated keys.
+
+4.  There is no way to convert a nextflow channel (no matter what type:
+    valuel, queue, etc) to a groovy list or map. A workaround is to save
+    the channel to a file and then read back using groovy function. But
+    this won’t work for channel processes because the function may have
+    not been executed when a channel is reading the returned values from
+    the function.
 
 ## FAQs
 
