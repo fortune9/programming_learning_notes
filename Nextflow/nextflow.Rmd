@@ -1563,7 +1563,14 @@ Finally the result is printed using the view operator.
     and then read back using groovy function. But this won't work for channel processes
     because the function may have not been executed when a channel is reading the
     returned values from the function.
+
+5. nextflow aws batch container working dir is the one specified by the environment variable
+    TMPDIR, default to /tmp.
     
+6. In nextflow, changing workdir does not invalidate the completed tasks, so resume will use
+    the cached results, this also applies to aws batch. Therefore, one can speficify a different
+    workdir when resuming a failed job.
+
 
 ## FAQs
 
@@ -1784,7 +1791,9 @@ Finally the result is printed using the view operator.
     The cause: such errors are usually caused by the read/write of **many big** datasets
     on EC2 instance which uses an EBS volume. It is because such EBS volumes are designed
     to read/write not too frequent, constrained by available burst balance. When reading/writing
-    big files such as from S3 buckets, the burst balance drops quickly to zero, and causes
+    big files such as from S3 buckets, particularly when multiple programs are writing/reading data
+    from the same EBS,
+    the burst balance drops quickly to zero, and causes
     the above errors. One can find more explanation [here](https://repost.aws/knowledge-center/batch-docker-timeout-error)
     
     The solutions:
@@ -1795,10 +1804,15 @@ Finally the result is printed using the view operator.
         of CPUs and/or memory, so aws batch would not assign many tasks on one EC2 instance.
     3. Change the configuration `aws.batch.maxParallelTransfers` to a smaller number such as 5.
     4. Decrease the job submission rates such as `executor.submitRateLimit` to '20/1min'.
-    5. use other high I/O file systems such as io1.
+    5. Attach an EFS or FSX volume to the AMI used by batch compute environment and attach it
+        to the container's '/tmp' folder (used by nextflow to run tasks) via the option
+        'aws.batch.volumes'.
+    6. use other high I/O file systems such as io1.
+    7. For gp3 volume, when creating AMI, set the IOPS value to higher value, say 9000
+        (default is 3000) and the throughput to 500MB (default is 125MB), even though
+        this will increases the cost, but not as much as io1/2 with the same performance.
 
-    One need to combine solution 1 to 4 to solve the problems in aws batch. And the parameters
-    have been tuned multiple times.
+    I have tested the method 6 with a volume size 2TB, and it seems working.
 
 
 19. How to attach an S3 volume to an AWS batch container in nextflow?
