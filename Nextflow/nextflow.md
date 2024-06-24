@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-March 31, 2024
+June 23, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -285,6 +285,17 @@ sub-workflow (workflow/) in this case, and use
 | fromFilePairs | queue      | similar to *fromPath*, but return groups of files for each element, like \[id, \[file1, file2\]\]. Option `size` can be used to return how many files for each record.                                                                                                                                  |
 | fromSRA       | queue      | query NCBI SRA using accessions or project IDs and return a list of fastq files.                                                                                                                                                                                                                        |
 
+Note that nextflow can’t set a channel if a channel’s name has been used
+before, for example if you do:
+
+    my_ch = Channel.empty();
+
+then
+
+    Channel.of(1,3,4).set { my_ch }
+
+will not work.
+
 ## Input type
 
 The input block can contain one or more inputs declarations, using the
@@ -381,7 +392,7 @@ The qualifiers can be summarized as below:
 | qualifier | source type   | return type   | description                                   |
 |-----------|---------------|---------------|-----------------------------------------------|
 | val       | value element | value element | it sends value elements to output channel     |
-| file      | file names    | file object   | sends file objects to output channel          |
+| path      | file names    | file object   | sends file objects to output channel.         |
 | tuple     | tuple list    | tuple list    | it sends a tuple as element to output channel |
 
 One can use a file glob format such as ’chunk\_\*’ to generate a set of
@@ -391,6 +402,15 @@ files. The glob matching has the following properties:
 2.  it matches both files and directories.
 3.  if ’\*\*’ is used instead of ’\*’, it will cross over directory
     boundaries and only match files.
+
+**Note** one can use `arity` to control the expected number of items for
+a channel, and this arity specification has higher priority than the
+`optional` specification, for example, with the following specification,
+the process will fail when no outfiles matching the pattern, even though
+it sets “optional: true”. To resolve it, one need to provide ‘0..2’ to
+arity.
+
+    path("*_val_{1,2}_fastqc.zip", arity: '1..2'), optional: true
 
 One can also put several files into a list, using the format like below
 (enclosed with braces):
