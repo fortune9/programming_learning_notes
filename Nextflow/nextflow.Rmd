@@ -391,6 +391,11 @@ One can also put several files into a list, using the format like below (enclose
 output: path '{f1.txt,f2.txt}' into ch_out
 ```
 
+Note that the local variable defined in the format 'def local_var=some_value'
+in the script section isn't visible in the "output:" section.
+However, removing the 'def' in definition resolved the issue, 
+but no idea whether other side-effect exist.
+
 ## Variables
 
 In nextflow, there are both pipeline variables and environment variables. The former
@@ -1556,6 +1561,26 @@ Finally the result is printed using the view operator.
         by the *Path* operation in the same nextflow process.
         
 
+## Plugins
+
+### nf-validation, renamed to nf-schema
+
+To update the code from nf-validation to nf-schema, please see the migration
+guide at https://nextflow-io.github.io/nf-schema/latest/migration_guide/.
+
+Please check the repo here https://github.com/nextflow-io/nf-schema.
+
+Here are some useful functions from the plugin:
+
+- paramsHelp: print help messages
+
+- paramsSummaryLog: print a log of non-default values in a pipeline run
+
+- validateParameters: validate input parameters
+
+- Channel.fromSamplesheet: read and validate samplesheet, and create a samplesheet channel.
+
+
 
 ## Cool facts
 
@@ -1595,6 +1620,14 @@ Finally the result is printed using the view operator.
     the cached results, this also applies to aws batch. Therefore, one can speficify a different
     workdir when resuming a failed job.
 
+7. One can't assign a process name to another name, unless using alias during include
+    step.
+    
+    ```
+    include { proc_a as proc_b } from './process.nf' // work
+    proc_c = proc_b // not work
+    ```
+    
 
 ## FAQs
 
@@ -1950,7 +1983,11 @@ Finally the result is printed using the view operator.
     ```
 
 
+25. What causes the error:  DataflowBroadcast around DataflowStream[?]
 
+    This error happens when one uses channels as inputs for other channel
+    operator or channel factory such as map() or Channel.of(), which accept
+    list or values only.
     
 ## Resources
 

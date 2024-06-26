@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-June 23, 2024
+June 25, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -44,6 +44,9 @@ June 23, 2024
     -   [Pipes](#pipes)
 -   [Tricks](#tricks)
 -   [Caveats](#caveats)
+-   [Plugins](#plugins)
+    -   [nf-validation, renamed to
+        nf-schema](#nf-validation-renamed-to-nf-schema)
 -   [Cool facts](#cool-facts)
 -   [FAQs](#faqs)
 -   [Resources](#resources)
@@ -418,6 +421,11 @@ One can also put several files into a list, using the format like below
 ``` nextflow
 output: path '{f1.txt,f2.txt}' into ch_out
 ```
+
+Note that the local variable defined in the format ‘def
+local\_var=some\_value’ in the script section isn’t visible in the
+“output:” section. However, removing the ‘def’ in definition resolved
+the issue, but no idea whether other side-effect exist.
 
 ## Variables
 
@@ -1549,6 +1557,28 @@ the mix operator. Finally the result is printed using the view operator.
     -   If one file is operated by a Channel, this file seems not
         operable by the *Path* operation in the same nextflow process.
 
+## Plugins
+
+### nf-validation, renamed to nf-schema
+
+To update the code from nf-validation to nf-schema, please see the
+migration guide at
+<https://nextflow-io.github.io/nf-schema/latest/migration_guide/>.
+
+Please check the repo here <https://github.com/nextflow-io/nf-schema>.
+
+Here are some useful functions from the plugin:
+
+-   paramsHelp: print help messages
+
+-   paramsSummaryLog: print a log of non-default values in a pipeline
+    run
+
+-   validateParameters: validate input parameters
+
+-   Channel.fromSamplesheet: read and validate samplesheet, and create a
+    samplesheet channel.
+
 ## Cool facts
 
 1.  When resuming a pipeline run by using a new working directory, it
@@ -1591,6 +1621,12 @@ the mix operator. Finally the result is printed using the view operator.
     tasks, so resume will use the cached results, this also applies to
     aws batch. Therefore, one can speficify a different workdir when
     resuming a failed job.
+
+7.  One can’t assign a process name to another name, unless using alias
+    during include step.
+
+        include { proc_a as proc_b } from './process.nf' // work
+        proc_c = proc_b // not work
 
 ## FAQs
 
@@ -1975,6 +2011,12 @@ the mix operator. Finally the result is printed using the view operator.
         nxf_launch() {
         docker run -i --cpu-shares 6144 --memory 49152m -e "NXF_DEBUG=${NXF_DEBUG:=0}" -e "NXF_OWNER=$(id -u):$(id -g)" -v /home/ubuntu/work:/home/ubuntu/work -w "$PWD" --name $NXF_BOXID my_image:tag /bin/bash -c "eval $(nxf_container_env); /bin/bash /home/ubuntu/work/Projects/test/nf_work/a5/6d782b9bc26da73cb71fa9b94b23ae/.command.run nxf_trace"
         }
+
+25. What causes the error: DataflowBroadcast around DataflowStream\[?\]
+
+    This error happens when one uses channels as inputs for other
+    channel operator or channel factory such as map() or Channel.of(),
+    which accept list or values only.
 
 ## Resources
 
