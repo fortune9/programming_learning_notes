@@ -1,7 +1,7 @@
 Git usage summary
 ================
 Zhenguo Zhang
-January 25, 2024
+July 21, 2024
 
 -   [Git architecture](#git-architecture)
     -   [Important terms](#important-terms)
@@ -405,6 +405,14 @@ a repo between two formal releases (i.e., tags).
 -   Change remote url
 
         git remote set-url origin <new-url>
+
+-   To track a new remote branch
+
+        git remote set-branches --add origin <new-remote-branch>
+
+    Then use ‘git fetch’ to get the data from new remote branch.
+
+    without –add, it will replace the current branch.
 
 ## Github
 
