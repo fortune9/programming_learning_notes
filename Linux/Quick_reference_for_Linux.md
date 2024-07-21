@@ -7,7 +7,10 @@ Quick Reference for Linux
 -   [File system](#file-system)
 -   [Compilation](#compilation)
 -   [Conda](#conda)
+-   [User management](#user-management)
 -   [Other useful commands](#other-useful-commands)
+-   [Session management](#session-management)
+    -   [tmux](#tmux)
 
 ## Programming
 
@@ -143,6 +146,45 @@ Here are for tools such as sed, awk, etc.
     tar -xzf test.tar.gz -C targetDir --strip-components=1
     ```
 
+-   File permission
+
+normally, each file and folder have its read/write/executable
+permissions set for owner, group, and other users. This traditional way
+allows permission is set to a single owner and group, so no way to give
+permissions to different users or groups.
+
+One solution to this is to use
+[ACL](https://www.geeksforgeeks.org/access-control-listsacl-linux/).
+
+To add permission for a user, say, *special*, one can run
+
+``` bash
+setfacl -m u:special:rw needed/file
+```
+
+To add permission for a group, say, *sgroup*, one can run
+
+``` bash
+setfacl -m g:sgroup:rwx needed/dir
+```
+
+To apply the permission recursively in a folder, add option `-R`.
+
+To revoke the acl permisions set on a file or folder, run
+
+``` bash
+setfacl -b needed/file
+```
+
+To get the acl setting of a file/folder, run the following:
+
+``` bash
+getfacl needed/file
+```
+
+Also, when a file/folder has ACL settings, it will show a ‘+’ sign in
+the permission string when one run `ls -l`, like ‘rwxr-x—+’.
+
 ## Compilation
 
 1.  When a certain lib file can’t be found, one can use the following
@@ -218,6 +260,8 @@ Here are for tools such as sed, awk, etc.
     To ask conda to follow the priority order strictly, use
     `conda config --system --set channel_priority strict`
 
+## User management
+
 ## Other useful commands
 
 -   dmesg: Get the kernel log, useful for knowing the reason for killing
@@ -239,3 +283,15 @@ Here are for tools such as sed, awk, etc.
 
 -   lsb\_release -a: show the system information such as version and
     name
+
+## Session management
+
+### tmux
+
+tmux can keep an ssh session active even the window is terminated.
+
+-   Some useful plugins
+    -   tmux-resurrect: save sessions to a file, default
+        *\~/.local/share/tmux/resurrect*, can be set via *set -g
+        @resurrect-dir <path>* in *\~/.tmux.conf*.
+    -   tmux plugin manager: plugin manager
