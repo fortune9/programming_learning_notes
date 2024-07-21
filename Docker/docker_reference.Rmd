@@ -482,6 +482,27 @@ The requirements for parser directives:
     
     One good example is by using –v ‘/home/my-R-lib:/usr/local/lib/R/host-site-library’, one can make the installed R libraries in host folder /home/my-R-lib available to the docker container.
     
+    Also one can mount one directory to a child container directory which will hide
+    the original child directory. For example, if there is a host directory has the
+    following folder structure:
+    
+    ```
+    - hostdir1
+        - child1
+        - child2
+    - hostdir2
+        - child3
+    ```
+    
+    If one does the following:
+    
+    ```
+    docker run -v /hostdir1:/opt/target -v /hostdir2/child3:/opt/target/child1 <image>
+    ```
+    
+    Then the docker container folder */opt/target/child1* will contain the content from
+    */hostdir2/child3*, instead of */hostdir1/child1*.
+    
 - How to exclude unnecessary files in the source fold to be copied when building an image?
 
     One can use .dockerignore file to exclude files when building an image.
