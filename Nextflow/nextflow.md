@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-June 25, 2024
+July 21, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -1628,6 +1628,30 @@ Here are some useful functions from the plugin:
         include { proc_a as proc_b } from './process.nf' // work
         proc_c = proc_b // not work
 
+8.  When using AWS batch to run nextflow, S3 bucket is more efficient
+    than EFS in saving big datasets: the former is more robust and
+    scalable (parallelization), while the latter can fail in data
+    transfer, even though EFS is way more expensive. So choose S3 as
+    output dir instead of EFS volumes.
+
+9.  Enabling virtual threads in Java (available from Java 19) slows down
+    job submission speed, not as described in this post:
+    <https://nextflow.io/blog/2024/optimizing-nextflow-for-hpc-and-cloud-at-scale.html>,
+    so just set *NXF\_ENABLE\_VIRTUAL\_THREADS=false*
+
+10. If a job needs to take longer time to transfer data to/from S3, set
+    the following parameter in nextflow.config to a bigger value
+    (default: 12 hours):
+
+<!-- -->
+
+    threadPool.publishDir.maxAwait=48.h
+
+11: When a process task fails, it can be re-submitted for execution. The
+process directive *maxRetries* can be used to control how many
+resubmissions. But note that if a task fails due to *spot* instance
+outbid, the failure is not counted into re-submissions.
+
 ## FAQs
 
 1.  How to feed a program with multiple input files?
@@ -1701,6 +1725,9 @@ Here are some useful functions from the plugin:
     and maxForks, so only these 3 directives need variables defined
     outside process scope. One can find more about dynamic directives
     [here](https://www.nextflow.io/docs/latest/process.html#dynamic-directives).
+
+    Also note that dynamic directive has higher priority than the
+    settings in the configuration files.
 
 9.  How to get store the size of a channel into a variable?
 
@@ -2017,6 +2044,32 @@ Here are some useful functions from the plugin:
     This error happens when one uses channels as inputs for other
     channel operator or channel factory such as map() or Channel.of(),
     which accept list or values only.
+
+26: How to apply a groovy function on a channel?
+
+    Normally, one can't convert a nextflow channel into any Java objects such as
+    List, Map, etc, so that one can operate on the objects, because a channel operation
+    such as *toList()* or *collect()* still emits a channel object. One workaround is to
+    apply a function via *flatMap()* operator on a converted list, such as below:
+
+    ```nextflow
+    nums = Channel.of(1..10)
+
+    def get_pair(a) {
+      def s = a.size
+      def p = []
+      for(int i = 0; i < s; i++) {
+        for(j = i+1; j<s; j++) {
+          p.add([a[i],a[j]])
+        }
+      }
+      
+      return(p)
+    }
+
+    // get a channel emitting pairs of numbers
+    nums.toList().flatMap{ it -> get_pair(it) }.view()
+    ```
 
 ## Resources
 
