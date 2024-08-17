@@ -1,7 +1,7 @@
 nf-test
 ================
 Zhenguo Zhang
-25 June, 2024
+17 August, 2024
 
 -   [Snapshots](#snapshots)
 -   [Some commands](#some-commands)
@@ -168,7 +168,9 @@ and <https://www.nf-test.com/docs/getting-started>):
 -   when: this block sets up the inputs for the module/subworkflow. In
     this block, one can use *params* section to set parameters to
     override the nextflow inputs, and use the *process* section to
-    provide inputs (via the *input* array).
+    provide inputs (via the *input* array). Note that, for subworkflows,
+    the channel inputs must be created like Channel.of(), and empty
+    array ‘\[\]’ will only work for process tests.
 
 -   then: this block does the tests using assertions
 
