@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-July 21, 2024
+August 17, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -22,6 +22,7 @@ July 21, 2024
 -   [nextflow running options](#nextflow-running-options)
 -   [directives](#directives)
 -   [operators](#operators)
+    -   [Note on groupTuple](#note-on-grouptuple)
 -   [Groovy language](#groovy-language)
     -   [Comments](#comments)
     -   [Variables](#variables-1)
@@ -42,6 +43,7 @@ July 21, 2024
     -   [Module](#module)
     -   [Channel forking](#channel-forking)
     -   [Pipes](#pipes)
+-   [Triger nextflow from git repos](#triger-nextflow-from-git-repos)
 -   [Tricks](#tricks)
 -   [Caveats](#caveats)
 -   [Plugins](#plugins)
@@ -680,6 +682,34 @@ A summary of useful operators:
 | combine     | ch1.combine(ch2)                              | combine two channels in the form of cartesian product, or based on a key given by option ‘by: pos’.                                                                       |
 | concat      | ch1.concat(ch2,ch3)                           | concatenate the elements in multiple channels into one.                                                                                                                   |
 
+### Note on groupTuple
+
+One running `groupTuple()`, it will emit any elements until the input
+channel is completed, which leads to blocking. One solution is to use
+`groupKey()` to add size attribute to the grouping keys before applying
+`groupTuple()`.
+
+One can also sort the grouped items using a sort closure, such as
+
+``` nextflow
+Channel.of([1,'A'],[1,'B'],[2,'D'],[2,'A'])
+    .groupTuple(
+        sort: { a,b -> b <=> a}
+    )
+    .view()
+```
+
+Note that the closure function applies to the grouped items in each
+group, here are the letters A, B, and D.
+
+If one applies `groupKey(meta, size)` to a groovy map named `meta`, then
+this map becomes a GroupKey object, see
+<https://github.com/nextflow-io/nextflow/blob/master/modules/nextflow/src/main/groovy/nextflow/extension/GroupKey.groovy>.
+Then some methods of a map such as `findAll()` will not work any more.
+One solution is to get the map object back by using the method
+`getGroupTarget()`. Also see the `groupKey()` definition here:
+<https://github.com/nextflow-io/nextflow/blob/9c63e784f65e5a55a3dae59d02ba0582372634b8/modules/nextflow/src/main/groovy/nextflow/Nextflow.groovy#L376>
+
 ## Groovy language
 
 [NextFlow](https://www.nextflow.io/) is a DSL implementation on Groovy
@@ -966,6 +996,79 @@ with the option ‘-profile’.
 One can specify multiple profiles, such as `-profile cluster,standard`,
 then the one appearing later in the config file (here `cluster`) will
 override the same options in the earlier profiles.
+
+4.  Selector priority When one attribute is set in multiple places, the
+    one with higher priority will replace the one with lower priority,
+    and the priority is as follows:
+
+    1.  Process configuration settings (without a selector)
+
+    2.  Process directives in the process definition
+
+    3.  withLabel selectors matching any of the process labels
+
+    4.  withName selectors matching the process name, such as
+        `withName:bar`
+
+    5.  withName selectors matching the process included alias, such as
+        `withName:bar` and `bar` is an alias of process `hello`
+
+    6.  withName selectors matching the process fully qualified name,
+        such as `withName: 'wf:bar'` will override the setting by
+        `withName:bar`
+
+    Also note that if the same selector shows multiple times, then the
+    last one takes priority, and the settings will be merged, for
+    example:
+
+        withName: bar {
+            cpus = 4
+            memory = 4.GB
+        }
+
+        withName: bar {
+            memory = 8.GB
+            time = '1.d'
+        }
+
+    is equivalent to
+
+        withName: bar {
+            cpus = 4
+            memory = 8.GB
+            time = '1.d'
+        }
+
+5.  Selector syntax
+
+    Note that one can refer to input channels of a process when
+    configuring it using selectors in any configuration files such as
+    conf/modules.config, nextflow.config, for example, here the process
+    `fastqc` uses the input `reads`.
+
+    ``` yaml
+    process {
+        withName: 'fastqc' {
+            cpus = { reads.size()*task.attempt }
+            tag = { "Processing ${reads}" }
+        }
+    }
+    ```
+
+    Note that the dynamic directives need to be provided in curly braces
+    and assigned with a equal sign.
+
+    Also note that when setting dynamic directive in configuration files
+    instead of in process files, the referred groovy/java/nextflow
+    classes need to given in full path, so
+
+        def minTime = Duration.of('1d')
+
+    will not work in configuration files, and it should be
+
+        def minTime = nextflow.util.Duration.of('1d')
+
+    To find the full path for classes, search google.
 
 ## Cloud deployment
 
@@ -1484,6 +1587,32 @@ either foo and bar processes which are executed in parallel. The result
 is pair of channels whose content is merged into a single channel using
 the mix operator. Finally the result is printed using the view operator.
 
+## Triger nextflow from git repos
+
+One can find more info at
+<https://www.nextflow.io/docs/latest/sharing.html>.
+
+Briefly, one needs to create a file `~/.nextflow/scm` file and store the
+credentials for corresponding git providers. For example, for gitlab,
+the file may look like this
+
+    providers {
+        gitlab {
+            user = 'gitlab-username'
+            password = 'use-gitlab-token'
+        }
+    }
+
+Then one can run a pipeline by typing
+
+    nextflow run https://gitlab.com/path/to/repo.git
+
+Note that the short form
+
+    nextflow run -hub github path/to/repo
+
+may only work for github repos.
+
 ## Tricks
 
 1.  Methods to convert a groovy map to string
@@ -1914,19 +2043,22 @@ outbid, the failure is not counted into re-submissions.
         assign many tasks on one EC2 instance.
     3.  Change the configuration `aws.batch.maxParallelTransfers` to a
         smaller number such as 5.
-    4.  Decrease the job submission rates such as
+    4.  Change the configuration `aws.client.maxConnection` to a smaller
+        number such as 20 (default 50), which controls the number of
+        connections to S3 bucket for a single EC2 instance.
+    5.  Decrease the job submission rates such as
         `executor.submitRateLimit` to ‘20/1min’.
-    5.  Attach an EFS or FSX volume to the AMI used by batch compute
+    6.  Attach an EFS or FSX volume to the AMI used by batch compute
         environment and attach it to the container’s ‘/tmp’ folder (used
         by nextflow to run tasks) via the option ‘aws.batch.volumes’.
-    6.  use other high I/O file systems such as io1.
-    7.  For gp3 volume, when creating AMI, set the IOPS value to higher
+    7.  use other high I/O file systems such as io1.
+    8.  For gp3 volume, when creating AMI, set the IOPS value to higher
         value, say 9000 (default is 3000) and the throughput to 500MB
         (default is 125MB), even though this will increases the cost,
         but not as much as io1/2 with the same performance.
 
-    I have tested the method 6 with a volume size 2TB, and it seems
-    working.
+    I have tested the method 8 with a volume size 2TB, and it seems
+    working. Also the method 4 also worked in some cases.
 
 19. How to attach an S3 volume to an AWS batch container in nextflow?
 
@@ -2069,6 +2201,23 @@ outbid, the failure is not counted into re-submissions.
 
     // get a channel emitting pairs of numbers
     nums.toList().flatMap{ it -> get_pair(it) }.view()
+    ```
+
+27. When running `def bar_out = process_bar(ch_input)`, got error
+    `ch_input` already defined in the process scope @line \#\#, column
+    \#\#
+
+    This error can be a bug of nextflow, which will be triggered when
+    calling a process/workflow, some places assign the calling to a
+    variable and some places are not.
+
+    The solutions is to make all calling assigned to variables or for
+    the places using assignment, define a variable in one line and then
+    assign the process calling to it in next line, such as
+
+    ``` nextflow
+    def bar_out = null
+    bar_out = process_bar(ch_input)
     ```
 
 ## Resources
