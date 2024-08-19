@@ -625,7 +625,7 @@ disk | disk '2.0 GB' | disk amount required for the process.
 tag | tag "$sampleId" | assign a label to a running task
 echo | echo true | let task to print out to standard output
 container | container 'image/name' | docker container to be used by the workflow. 
-publishDir | publishDir "/path/to/results", mode: 'copy' | send the results to directory, otherwise task-specific output files are deleted upon completion. The directory can be remote, too. One can use --outdir to change this folder. 'saveAs' use a closure to accept filename as string and set output filename.
+publishDir | publishDir "/path/to/results", mode: 'copy' | send the results to directory, otherwise task-specific output files are deleted upon completion. The directory can be remote, too. One can use --outdir to change this folder. 'saveAs' use a closure to accept filename as string and set output filename. Also note that the option 'pattern' is globbing, so '*' won't match any files prepended with folders.
 errorStrategy | errorStrategy 'ignore' | how to handle errors occured in a process. Available options are: terminate (terminate the whole pipeline immediately), finish (terminate after submitted jobs completed), ignore (ignore the error), retry (rerun the errored process).
 maxErrors | maxErrors 3 | the number of retries for the whole process across all tasks when errorStrategy is set to 'retry'.
 maxRetries | maxRetries 2 | the number of retries for a task (different from maxErrors) when errorStrategy is set to 'retry'.
@@ -1793,6 +1793,20 @@ Here are some useful functions from the plugin:
   due to *spot* instance outbid, the failure is not counted into re-submissions.
 
 
+12. When setting up AWS batch compute environments, one can either use a pre-built AMI,
+    or use a launch template for new instances in the compute environment. Note that
+    using launch template also needs a source AMI which can pre-installed some tools.
+    The advantage of launch template is that one can change many settings of new instances
+    without creating a new AMI, such as (1) change attached volume size and properties,
+    (2) instance types, (3) security groups, etc; of course, many of these except (1) can also be set
+    when setting a compute environment.
+
+13. When specifying input and output channels in a process, if a folder is provided,
+    there is risk that the folder may not be fully transferred when one resumes a
+    failed pipeline run. So it is always safer to pass files using the format like
+    'folder/*.gz'.
+    
+
 ## FAQs
 
 1. How to feed a program with multiple input files?
@@ -2201,6 +2215,31 @@ Here are some useful functions from the plugin:
     def bar_out = null
     bar_out = process_bar(ch_input)
     ```
+
+28. How to handle error: "download failed: s3://bucket/path/.... An error occured
+    (Slowdown) when calling the GetObject operation: please reduce your request rate".
+    
+    This happens due to many parallel downloading requests from S3, and may happen
+    occasionally. Here are some solutions to try: (1) re-try the pipeline without
+    changing anything, (2) reduce the parameter aws.client.maxConnections to a lower
+    number, say 40, (3) increases aws.batch.maxTransferAttempts to a bigger number,
+    say 5.
+
+
+29. How to handle error: "DEBUG nextflow.could.aws.nio.S3Client - Failed to upload part 733
+    attempt 1 for .... -- Caused by: Unable to execute HTTP request: Timeout waiting for
+    connection from pool" and "[PublishDir-8] WARN nextflow.processor.PublishDir - Failed
+    to publish file : s3://path ..."
+
+    These errors are basically cause by many parallel uploading file parts to S3, and some
+    file parts can't connect to S3 before timeout. The solution is to set the parameter
+    `aws.client.connectionTimeout` to a big number, say, 30000. At the same time, remove
+    the setting 'aws.client.uploadChunkSize', since nextflow might calculate the value dynamically
+    based on file size. It is also possible to increase the number of simutaneous connections
+    by increasing 'aws.client.maxConnections', so that more parts can be uploaded at the 
+    same time, but this may cause the issue for downloading big files as in the previous
+    issue. So it is better to change `aws.client.connectionTimeout` only.
+    
     
 ## Resources
 
