@@ -8,6 +8,7 @@ Quick Reference for Linux
 -   [Compilation](#compilation)
 -   [Conda](#conda)
 -   [User management](#user-management)
+-   [Remote access](#remote-access)
 -   [Other useful commands](#other-useful-commands)
 -   [Session management](#session-management)
     -   [tmux](#tmux)
@@ -261,6 +262,21 @@ the permission string when one run `ls -l`, like ‘rwxr-x—+’.
     `conda config --system --set channel_priority strict`
 
 ## User management
+
+## Remote access
+
+One can connect to a remote Linux system graphically via the following
+tools:
+
+-   windows remote desktop: this tool is available for both windows and
+    MacOs, and relies on the xrdp service on the host Linux machine. My
+    experience with this tool is that it can easily get stuck in login
+    if sessions are not closed properly.
+
+-   NoMachine: this is another tool to get a remote desktop. The
+    solution is to install the tool in both client (say, MacOS) machine
+    and host (e.g. Ubuntu) machine (starting a service listening on 4000
+    after installation), and then follow the instruction to connect.
 
 ## Other useful commands
 
