@@ -1,6 +1,6 @@
 AWS usage
 ================
-17 August, 2024
+29 August, 2024
 
 -   [EBS volumes](#ebs-volumes)
     -   [SSD volumes](#ssd-volumes)
@@ -14,6 +14,8 @@ AWS usage
     -   [Settings for `aws s3` commands](#settings-for-aws-s3-commands)
     -   [Settings for `aws s3` and `aws s3api`
         commands](#settings-for-aws-s3-and-aws-s3api-commands)
+    -   [Access S3 using R](#access-s3-using-r)
+    -   [Access S3 within Docker](#access-s3-within-docker)
 
 ## EBS volumes
 
@@ -273,3 +275,17 @@ One can also set these values in command line, such as:
 -   payload\_signing\_enabled: Refers to whether or not to SHA256 sign
     sigv4 payloads. By default, this is disabled for streaming uploads
     (UploadPart and PutObject) when using https.
+
+### Access S3 using R
+
+One can access S3 buckets using the R package *aws.s3*. However, one
+need to set right aws credentials for accessing private buckets. If one
+wants to use the IAM role to set permissions, then one need to install
+and load the package *aws.ec2metadata*. Also check this
+[post](https://stackoverflow.com/questions/56650049/how-to-access-s3-data-from-r-on-ec2-using-aws-s3-package-functions-write-using).
+
+### Access S3 within Docker
+
+In a docker, it is essentially the same way to access S3 buckets as in a
+host machine. The users in a docker container will assume the same IAM
+role as the creator of the host EC2 instance.

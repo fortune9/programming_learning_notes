@@ -245,3 +245,19 @@ aws configure set s3.multipart_threshold 64MB --profile "test-profile"
 - payload_signing_enabled: Refers to whether or not to SHA256 sign sigv4 payloads. By default, this is
     disabled for streaming uploads (UploadPart and PutObject) when using https.
 
+
+### Access S3 using R
+
+One can access S3 buckets using the R package *aws.s3*. However,
+one need to set right aws credentials for accessing private buckets.
+If one wants to use the IAM role to set permissions, then one need
+to install and load the package *aws.ec2metadata*. Also check this
+[post](https://stackoverflow.com/questions/56650049/how-to-access-s3-data-from-r-on-ec2-using-aws-s3-package-functions-write-using).
+
+
+### Access S3 within Docker
+
+In a docker, it is essentially the same way to access S3 buckets as
+in a host machine. The users in a docker container will assume the
+same IAM role as the creator of the host EC2 instance.
+
