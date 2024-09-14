@@ -1,7 +1,7 @@
 Python learning notes
 ================
 Zhenguo Zhang
-July 23, 2023
+September 13, 2024
 
 -   [Variables](#variables)
     -   [Python data types](#python-data-types)
@@ -27,6 +27,9 @@ July 23, 2023
     -   [Docstrings](#docstrings)
     -   [Multi-line string](#multi-line-string)
     -   [Multi-line statement](#multi-line-statement)
+-   [Parallelization](#parallelization)
+    -   [Thread vs process](#thread-vs-process)
+    -   [Synchronization](#synchronization)
 -   [Performance test](#performance-test)
 -   [Some useful modules and
     packages](#some-useful-modules-and-packages)
@@ -233,7 +236,10 @@ When using relative path to import, note that python relies on the
 **name** and **package** to determine where to look the packages. For
 instance, if there is a directory with the following structure:
 
-> top/ —com.py —mod/ ——–bar.py
+> top/  
+> —com.py  
+> —mod/  
+> ——–bar.py
 
 so when the top/mod/bar.py use ‘import ..com’, and we run it as “python
 –m mod.bar” or “python mod/bar.py” in the folder top/, it will fail with
@@ -643,6 +649,33 @@ if number > 5 and \
         number < 15:
     print "1"
 ```
+
+## Parallelization
+
+### Thread vs process
+
+One can use multi-threads for I/O bound work, in which case the program
+has access to only one CPU, but it can run multiple threads. On the
+other hand, for computing-intensive work, one can use multi-processes.
+
+### Synchronization
+
+One can use Semaphore or Queue to limit the number of active processes
+or threads. Note that for both, there are thread versions and process
+versions:
+
+-   Semaphore:
+    -   thread: threading.Semaphore()
+    -   process: multiprocessing.Semaphore()
+-   Queue:
+    -   thread: threading.Queue()
+    -   process: multiprocessing.Queue()
+
+When using queue for processes, it is better to create it in the main
+function, and let other child processes inherit the same queue (shared
+among processes). Otherwise one may meet the RuntimeError: Queue objects
+should only be shared between processes through inheritance. Passing the
+queue as a parameter to functions is not a good practice.
 
 ## Performance test
 

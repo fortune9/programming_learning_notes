@@ -135,10 +135,10 @@ One can also use relative path to import modules. For example, if there are two 
 
 When using relative path to import, note that python relies on the __name__ and __package__ to determine where to look the packages. For instance, if there is a directory with the following structure:
 
->    top/
->    ---com.py
->    ---mod/
->    --------bar.py
+>    top/  
+>    ---com.py  
+>    ---mod/  
+>    --------bar.py  
 
 so when the top/mod/bar.py use 'import ..com', and we run it as "python –m mod.bar" or "python mod/bar.py" in the folder top/, it will fail with error "ValueError: attempted relative import beyond top-level package". The reason is this: when calling python –m mod.bar, the package name is 'mod' and is regarded as current folder (referred by '.', so .bar can refer bar.py), so the point '..' goes above the folder 'mod', which is not in the package name. One solution is call 'python –m top.mod.bar'; at the same time, the folder 'top' needs '__init__.py' file to indicate it is a package.
 
@@ -450,6 +450,33 @@ if number > 5 and \
         number < 15:
     print "1"
 ```
+
+
+## Parallelization
+
+### Thread vs process
+
+One can use multi-threads for I/O bound work, in which case the program has access to
+only one CPU, but it can run multiple threads. On the other hand, for computing-intensive
+work, one can use multi-processes.
+
+### Synchronization
+
+One can use Semaphore or Queue to limit the number of active processes or threads.
+Note that for both, there are thread versions and process versions:
+
+- Semaphore:
+    - thread: threading.Semaphore()
+    - process: multiprocessing.Semaphore()
+
+- Queue:
+    - thread: threading.Queue()
+    - process: multiprocessing.Queue()
+
+When using queue for processes, it is better to create it in the main function, and
+let other child processes inherit the same queue (shared among processes). Otherwise
+one may meet the RuntimeError: Queue objects should only be shared between processes
+through inheritance. Passing the queue as a parameter to functions is not a good practice.
 
 ## Performance test
 
