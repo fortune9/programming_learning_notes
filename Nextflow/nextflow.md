@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-August 19, 2024
+September 13, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -1044,7 +1044,7 @@ override the same options in the earlier profiles.
     Note that one can refer to input channels of a process when
     configuring it using selectors in any configuration files such as
     conf/modules.config, nextflow.config, for example, here the process
-    `fastqc` uses the input `reads`.
+    `fastqc` uses the input `reads`. See below:
 
     ``` yaml
     process {
@@ -1054,6 +1054,14 @@ override the same options in the earlier profiles.
         }
     }
     ```
+
+    However, note that for processes which accept multiple files as one,
+    such as `reads`, it will be an array, so one need to treat it
+    accordingly (instead of the above, one need to use
+    `reads*.size().sum()` to calculate total size); when only one file
+    is given as input, the variable automatically changes into a single
+    value from array, so this special case also needs to be taken care
+    of.
 
     Note that the dynamic directives need to be provided in curly braces
     and assigned with a equal sign.
@@ -1715,6 +1723,18 @@ Here are some useful functions from the plugin:
     s3 bucket for a run, and then use another s3 bucket to resume the
     run, then finished tasks will just read from cache.
 
+    Also when re-running a pipeline, it will determine whether to rerun
+    a task based on the following things:
+
+    -   input values, files, and commands,
+    -   environments such as containers.
+    -   status of previous run, success?
+    -   the output files/paths.
+
+    The last one is very important: if the output filename/path changes
+    when re-running, the task will be rerun. A bad practice is to use
+    task id in the output filename/path, so please avoid this.
+
 2.  In nextflow workflow and process definitions, use the ‘def’ define
     local variables as much as possible, unless the variables are
     expected to be global. The variables in the map {} closure without
@@ -1788,13 +1808,23 @@ outbid, the failure is not counted into re-submissions.
     launch template is that one can change many settings of new
     instances without creating a new AMI, such as (1) change attached
     volume size and properties,
+
     2.  instance types, (3) security groups, etc; of course, many of
         these except (1) can also be set when setting a compute
         environment.
+
 13. When specifying input and output channels in a process, if a folder
     is provided, there is risk that the folder may not be fully
     transferred when one resumes a failed pipeline run. So it is always
     safer to pass files using the format like ’folder/\*.gz’.
+
+14. When running a pipeline, nextflow will add the *bin/* folder located
+    in the same folder as the nextflow script to the variable *PATH*,
+    however, depending on the executor, this *bin/* folder can be added
+    at the beginning or at the end of *PATH*:
+
+    -   at the beginning: awsbatch
+    -   at the end: docker, local
 
 ## FAQs
 
@@ -2262,6 +2292,9 @@ outbid, the failure is not counted into re-submissions.
     the same time, but this may cause the issue for downloading big
     files as in the previous issue. So it is better to change
     `aws.client.connectionTimeout` only.
+
+    Also see AWS explanation:
+    <https://docs.aws.amazon.com/sdk-for-java/latest/developer-guide/troubleshooting.html#faq-pool-timeout>
 
 ## Resources
 
