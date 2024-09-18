@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-September 13, 2024
+September 18, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -1825,6 +1825,12 @@ outbid, the failure is not counted into re-submissions.
 
     -   at the beginning: awsbatch
     -   at the end: docker, local
+
+15. To run a pipeline in hybrid mode, one need to specify the working
+    directories for remote tasks (e.g., running on aws batch) and local
+    tasks separately, using the command option -bucket-dir and
+    -work-dir, respectively, because the remote tasks must use S3
+    buckets while the local tasks can’t use S3 buckets at all.
 
 ## FAQs
 

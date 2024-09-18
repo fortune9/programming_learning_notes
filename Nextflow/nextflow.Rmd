@@ -1830,6 +1830,11 @@ Here are some useful functions from the plugin:
     - at the beginning: awsbatch
     - at the end: docker, local
 
+15. To run a pipeline in hybrid mode, one need to specify the working directories for
+    remote tasks (e.g., running on aws batch) and local tasks separately, using the
+    command option -bucket-dir and -work-dir, respectively, because the remote tasks
+    must use S3 buckets while the local tasks can't use S3 buckets at all.
+
 ## FAQs
 
 1. How to feed a program with multiple input files?

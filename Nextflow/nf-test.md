@@ -1,8 +1,9 @@
 nf-test
 ================
 Zhenguo Zhang
-17 August, 2024
+18 September, 2024
 
+-   [Languages in nf-test](#languages-in-nf-test)
 -   [Snapshots](#snapshots)
 -   [Some commands](#some-commands)
 -   [Generate tests for a pipeline/module/subworkflows/functions,
@@ -10,6 +11,7 @@ Zhenguo Zhang
 -   [Running tests](#running-tests)
 -   [assertions](#assertions)
 -   [writing main.nf.test](#writing-mainnftest)
+-   [Debug](#debug)
 
 *nf-test* is designed to test nextflow modules, workflows and pipelines,
 so ensuring reproducibility.
@@ -20,6 +22,11 @@ One can also find documentation at
 nf-test uses `diff` to compare snapshots, and one can do some
 customizations by setting environment variables, check
 <https://www.nf-test.com/docs/assertions/snapshots/#snapshot-differences>.
+
+### Languages in nf-test
+
+The language used for writing tests are groovy and the nf-test extended
+packages, not nextflow, so the latter such as `flatMap()` won’t work.
 
 ### Snapshots
 
@@ -192,3 +199,34 @@ and <https://www.nf-test.com/docs/getting-started>):
 
 -   One can find more guidance on writing tests at
     <https://nf-co.re/docs/tutorials/tests_and_test_data/nf-test_writing_tests>
+
+-   When referring to the files from test\_data.config, one can’t put
+    the map hierachy in a quote, otherwise it would trigger the error
+    such as “java.lang.NullPointerException: Cannot get property ‘hello’
+    on null object”. Below are the correct and wrong ways, respectively:
+
+    ``` groovy
+    # wrong way
+    input[0] = file("${params.test_data['hello']}")
+    ```
+
+    ``` groovy
+    # correct way
+    input[0] = file(params.test_data['hello'])
+    ```
+
+    To construct new strings using the *params* map, one can use plus
+    sign, such as
+
+    ``` groovy
+    input[0] = file(params.test_data['testdir'] + "/*.csv")
+    ```
+
+### Debug
+
+One can check the files in the path
+<launchDir>/.nf-test/tests/<hash-tag>/meta to exam the structure of each
+output channels, for example, for channel `fastq`, the correpondding
+file is `output_fastq.json`. Then to get a specific element in nf-test,
+one can use, for example, `fastq.get(0).get(1)` to get the 2nd element
+of the first array.
