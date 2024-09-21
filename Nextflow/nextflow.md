@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-September 18, 2024
+September 20, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -1832,6 +1832,15 @@ outbid, the failure is not counted into re-submissions.
     -work-dir, respectively, because the remote tasks must use S3
     buckets while the local tasks can’t use S3 buckets at all.
 
+    Actually, one can also set the following variables in the
+    configuration files such as *nextflow.config* to get the same
+    effect:
+
+    ``` nextflow
+    workDir = "/path/to/local/dir"
+    bucketDir = "s3://aws-bucket/subfolder"
+    ```
+
 ## FAQs
 
 1.  How to feed a program with multiple input files?
@@ -1843,6 +1852,16 @@ outbid, the failure is not counted into re-submissions.
 
     A: one can use collectFile() operator to collect all the values
     emitted from a channel.
+
+    Note that when one uses this method, the outpuut file path (provided
+    via the option *name*) must be an absolute path and the prepending
+    folder must exist, making it less flexible. One workaround is to
+    save these files using collectFile() first and then use the operator
+    subscribe to copy the files into target folder, like:
+
+        def ch_files = my_channel.collectFile(name: "target.tsv")
+
+        ch_files.subscribe { f -> f.copyTo("${params.outdir}") }
 
 3.  How to run a process in parallel?
 
@@ -2202,6 +2221,9 @@ outbid, the failure is not counted into re-submissions.
     workflow, because the reading of this file is not well coordinated
     with generating the file (i.e., reading can happen before
     generating). Therefore, it is hard to work out.
+
+    Also read “How to apply a groovy function on a channel?” for a
+    solution.
 
 22. How to end a workflow early?
 
