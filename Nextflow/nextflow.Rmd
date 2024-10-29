@@ -639,6 +639,25 @@ using ternary conditions, except the following three:
 - label
 - maxForks
 
+However, these directives can still be set based on other parameters before the
+process starts. For example, one can choose to set executor based on hostname:
+
+```yaml
+def hostname = 'hostname'.execute().text.trim() // this variable must be defined in the same file as the process scope
+process {
+    withName: 'hello' {
+    
+        if(hostname=="linux-2") {
+            executor='local'
+        } else { // the else section can be omitted if using default
+            executor='awsbatch'
+        }
+    
+    }
+}
+
+```
+
 ## operators
 
 Operators are bultin functions that applied to channels and can be used to
@@ -1052,6 +1071,21 @@ in the config file (here `cluster`) will override the same options in the earlie
     
     Note that the dynamic directives need to be provided in curly braces and assigned with
     a equal sign.
+    
+    Also in the selectors, or the process scope, one can use the groovy control syntax to
+    determine the operations. For example, in the following example, one can determine whether
+    to setup cpus based on host IP address:
+    
+    ```yaml
+    def host_ip = InetAddress.localHost.hostAddress
+    process {
+        withName: 'fastqc' {
+            if(host_ip=='192.168.1.11') {
+                cpus = 4
+            }
+        }
+    }
+    ```
     
     Also note that when setting dynamic directive in configuration files instead of
     in process files, the referred groovy/java/nextflow classes need to given in full

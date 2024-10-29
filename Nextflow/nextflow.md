@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-September 20, 2024
+October 29, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -439,20 +439,20 @@ as variables for bash, python, perl, etc. Depending on how the commands
 are quoted in the script block, different methods are needed for access
 these variables:
 
--   tri-double quotes: pipeline variable uses prefix ‘$’, such as
-    ‘$params.num’, and environment variables use escape ‘\\’, such as
-    ‘\\$enVar’.
+-   tri-double quotes: pipeline variable uses prefix ‘\$’, such as
+    ‘\$params.num’, and environment variables use escape ‘\\’, such as
+    ‘\\\$enVar’.
 
 -   tri-single quotes: pipeline variables are not accessible, and
-    environment variables use ‘$’ prefix, such as ‘$enVar’.
+    environment variables use ‘\$’ prefix, such as ‘\$enVar’.
 
 -   use ‘shell’ block instead of ‘script’: pipeline variable uses
-    ‘!{params.num}’, and environment variables use ‘$enVar’. Note that
+    ‘!{params.num}’, and environment variables use ‘\$enVar’. Note that
     pipeline variable must be put in ‘{}’ and the code block must be
     quoted using single quotes.
 
 Also if a pipeline variable is enclosed in single quotes when declared,
-then it will still need a ‘$’ in script block, for example, the
+then it will still need a ‘\$’ in script block, for example, the
 following two are equivalent:
 
     params.txt=Channel.from("Hello","NextFlow")
@@ -639,7 +639,7 @@ A summary of the major directives is as follows:
 | cpus          | cpus 2                                      | claim the number of cpus to use per task. If this is 2, and the number of tasks running in parallel is 4, then the machine needs 8 cpus.                                                                                                                                                                                                                          |
 | memory        | memory ‘8.0 GB’                             | claim the amount of memory to use                                                                                                                                                                                                                                                                                                                                 |
 | disk          | disk ‘2.0 GB’                               | disk amount required for the process.                                                                                                                                                                                                                                                                                                                             |
-| tag           | tag “$sampleId”                             | assign a label to a running task                                                                                                                                                                                                                                                                                                                                  |
+| tag           | tag “\$sampleId”                            | assign a label to a running task                                                                                                                                                                                                                                                                                                                                  |
 | echo          | echo true                                   | let task to print out to standard output                                                                                                                                                                                                                                                                                                                          |
 | container     | container ‘image/name’                      | docker container to be used by the workflow.                                                                                                                                                                                                                                                                                                                      |
 | publishDir    | publishDir “/path/to/results”, mode: ‘copy’ | send the results to directory, otherwise task-specific output files are deleted upon completion. The directory can be remote, too. One can use –outdir to change this folder. ‘saveAs’ use a closure to accept filename as string and set output filename. Also note that the option ‘pattern’ is globbing, so ’\*’ won’t match any files prepended with folders. |
@@ -655,6 +655,25 @@ ternary conditions, except the following three:
 -   executor
 -   label
 -   maxForks
+
+However, these directives can still be set based on other parameters
+before the process starts. For example, one can choose to set executor
+based on hostname:
+
+``` yaml
+def hostname = 'hostname'.execute().text.trim() // this variable must be defined in the same file as the process scope
+process {
+    withName: 'hello' {
+    
+        if(hostname=="linux-2") {
+            executor='local'
+        } else { // the else section can be omitted if using default
+            executor='awsbatch'
+        }
+    
+    }
+}
+```
 
 ## operators
 
@@ -677,7 +696,7 @@ A summary of useful operators:
 | branch      | myCh.branch{small: it &lt; 5; big: it &gt;=5} | return a multi-channel object, with labels as keys.                                                                                                                       |
 | set         | Channel.from(1,2,34).set(numCh)               | set channel name                                                                                                                                                          |
 | cross       | srcCh.cross(targetCh)                         | output only the source items whose keys (default: 1st item) have a match in the target channel. Like R’s merge() function.                                                |
-| subscribe   | ch.subscribe { println “Got: $it” }           | allow user to define a function to run on each emit element.                                                                                                              |
+| subscribe   | ch.subscribe { println “Got: \$it” }          | allow user to define a function to run on each emit element.                                                                                                              |
 | collectFile | ch.collectFile(name:“outfile.txt”)            | store all emited elements into the specified file. can be used for both saving maps/lists as well as concatenating files.                                                 |
 | combine     | ch1.combine(ch2)                              | combine two channels in the form of cartesian product, or based on a key given by option ‘by: pos’.                                                                       |
 | concat      | ch1.concat(ch2,ch3)                           | concatenate the elements in multiple channels into one.                                                                                                                   |
@@ -781,8 +800,8 @@ Below are some frequent operations:
 
 Strings can be defined by enclosing them in single or double quotes.
 When using double quotes, it can use
-‘![' for including variables or any expression, like '](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;%27%20for%20including%20variables%20or%20any%20expression%2C%20like%20%27 "' for including variables or any expression, like '")var’
-or ${command/operation}.
+‘$' for including variables or any expression, like '$var’ or
+\${command/operation}.
 
 Strings can also be defined using ‘/’ as delimiter, such as ‘/here/’,
 often used for defining regular expressions. These are called slashy
@@ -828,7 +847,7 @@ override bottom ones):
 
 5.  file `nextflow.config` in the workflow project folder.
 
-6.  file $HOME/.nextflow/config.
+6.  file \$HOME/.nextflow/config.
 
 7.  values defined in pipeline script itself.
 
@@ -860,9 +879,9 @@ The syntax to define variales in config files are as follows:
     and logical (true or false) should not be quoted.
 
 2.  The variables defined in config file can be used in other variables
-    in the format of $configVar or ${configExp}.
+    in the format of \$configVar or \${configExp}.
 
-3.  The environment variables defined in host such as $PATH, $PWD, etc
+3.  The environment variables defined in host such as \$PATH, \$PWD, etc
     can also be used in config file.
 
 4.  The same comment syntax is used in config file, i.e., ‘//’ or ’/\*
@@ -1065,6 +1084,22 @@ override the same options in the earlier profiles.
 
     Note that the dynamic directives need to be provided in curly braces
     and assigned with a equal sign.
+
+    Also in the selectors, or the process scope, one can use the groovy
+    control syntax to determine the operations. For example, in the
+    following example, one can determine whether to setup cpus based on
+    host IP address:
+
+    ``` yaml
+    def host_ip = InetAddress.localHost.hostAddress
+    process {
+        withName: 'fastqc' {
+            if(host_ip=='192.168.1.11') {
+                cpus = 4
+            }
+        }
+    }
+    ```
 
     Also note that when setting dynamic directive in configuration files
     instead of in process files, the referred groovy/java/nextflow
