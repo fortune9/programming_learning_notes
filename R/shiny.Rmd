@@ -352,14 +352,18 @@ https://docs.posit.co/shiny-server/.
     that user when running the app; for example, an application stored in /home/jim/ShinyApps/app1 would run as jim.
 
 - Dockerize shiny apps: one can build docker images based on the image *rocker/shiny*,
-    and copy apps to the container folder /srv/shiny-server/. Then one can trigger the
-    shiny server using the command */usr/bin/shiny-server*. For example, see
+    which includes a shiny server.
+    One can copy apps to the container's folder /srv/shiny-server/, then trigger the
+    shiny server using the command */usr/bin/shiny-server* or use 
+    *CMD ["/usr/bin/shiny-server"]* in the Dockerfile. Alternatively, one can trigger the
+    app too in the dockerfile, if that is the only one; for example, see
     https://hosting.analythium.io/dockerizing-shiny-applications/, which directly
     triggered a shiny app instead of shiny server though.
     
 - Environment variables: when starting R via shiny server, most environment variables
     are scrubbed to avoid exposure of sensitive info, which means that some user-set
-    environment variables won't be accessible in shiny apps. One solution is that putting
+    environment variables won't be accessible in shiny apps, including environment
+    variable *PATH*. One solution is that putting
     enviroment variables in the file /home/shiny/.profile, because R processes are spawned
     using the Bash login shell, so prior to the execution of the R session, the Bash shell
     will read and execute user bash settings. However, this will not work if one already
@@ -375,4 +379,3 @@ https://docs.posit.co/shiny-server/.
 
 3. All books related to shiny: https://www.bigbookofr.com/shiny.html
 
-4. 

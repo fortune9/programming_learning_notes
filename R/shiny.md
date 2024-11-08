@@ -1,6 +1,6 @@
 Shiny programming
 ================
-August 28, 2024
+November 07, 2024
 
 -   [Structure](#structure)
 -   [Reactive expressions](#reactive-expressions)
@@ -88,7 +88,7 @@ note that observe() and the reactive outputs don’t **do** something, but
 Reactive outputs are a special type of observers that have two important
 properties:
 
--   They are defined when you assign them into output, i.e. output$text
+-   They are defined when you assign them into output, i.e. output\$text
     &lt;- … creates the observer.
 
 -   They have some limited ability to detect when they’re not visible
@@ -280,7 +280,7 @@ And here is a module server function:
 
 Note that the function `moduleServer()` takes care of the namespacing
 automatically: inside of moduleServer(id),
-input![var and input](https://latex.codecogs.com/png.image?%5Cdpi%7B110%7D&space;%5Cbg_white&space;var%20and%20input "var and input")bins
+input![var and input](http://chart.apis.google.com/chart?cht=tx&chl=var%20and%20input "var and input")bins
 refer to the inputs with names NS(id, “var”) and NS(id, “bins”).
 
 And here is how to use the module:
@@ -363,21 +363,25 @@ at <https://docs.posit.co/shiny-server/>.
     stored in /home/jim/ShinyApps/app1 would run as jim.
 
 -   Dockerize shiny apps: one can build docker images based on the image
-    *rocker/shiny*, and copy apps to the container folder
-    /srv/shiny-server/. Then one can trigger the shiny server using the
-    command */usr/bin/shiny-server*. For example, see
+    *rocker/shiny*, which includes a shiny server. One can copy apps to
+    the container’s folder /srv/shiny-server/, then trigger the shiny
+    server using the command */usr/bin/shiny-server* or use *CMD
+    \[“/usr/bin/shiny-server”\]* in the Dockerfile. Alternatively, one
+    can trigger the app too in the dockerfile, if that is the only one;
+    for example, see
     <https://hosting.analythium.io/dockerizing-shiny-applications/>,
     which directly triggered a shiny app instead of shiny server though.
 
 -   Environment variables: when starting R via shiny server, most
     environment variables are scrubbed to avoid exposure of sensitive
     info, which means that some user-set environment variables won’t be
-    accessible in shiny apps. One solution is that putting enviroment
-    variables in the file /home/shiny/.profile, because R processes are
-    spawned using the Bash login shell, so prior to the execution of the
-    R session, the Bash shell will read and execute user bash settings.
-    However, this will not work if one already starts the shiny server
-    using the user shiny, such as given by ‘USER shiny’ in a Dockerfile.
+    accessible in shiny apps, including environment variable *PATH*. One
+    solution is that putting enviroment variables in the file
+    /home/shiny/.profile, because R processes are spawned using the Bash
+    login shell, so prior to the execution of the R session, the Bash
+    shell will read and execute user bash settings. However, this will
+    not work if one already starts the shiny server using the user
+    shiny, such as given by ‘USER shiny’ in a Dockerfile.
 
 ## References
 
@@ -387,5 +391,3 @@ at <https://docs.posit.co/shiny-server/>.
     <https://engineering-shiny.org/>
 
 3.  All books related to shiny: <https://www.bigbookofr.com/shiny.html>
-
-4.  
