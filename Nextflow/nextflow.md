@@ -1,7 +1,7 @@
 Notes on NextFlow
 ================
 Zhenguo Zhang
-October 29, 2024
+November 17, 2024
 
 -   [Installation](#installation)
 -   [Run it](#run-it)
@@ -17,11 +17,11 @@ October 29, 2024
     -   [if-else](#if-else)
     -   [for-loop](#for-loop)
     -   [when](#when)
--   [file staging](#file-staging)
--   [functions](#functions)
+-   [File staging](#file-staging)
+-   [Functions](#functions)
 -   [nextflow running options](#nextflow-running-options)
--   [directives](#directives)
--   [operators](#operators)
+-   [Directives](#directives)
+-   [Operators](#operators)
     -   [Note on groupTuple](#note-on-grouptuple)
 -   [Groovy language](#groovy-language)
     -   [Comments](#comments)
@@ -30,7 +30,7 @@ October 29, 2024
     -   [File operations](#file-operations)
 -   [NextFlow configuration](#nextflow-configuration)
     -   [nextflow.config](#nextflowconfig)
-    -   [syntax](#syntax)
+    -   [Syntax](#syntax)
     -   [Important variables](#important-variables)
     -   [Bulk-set attributes](#bulk-set-attributes)
 -   [Cloud deployment](#cloud-deployment)
@@ -53,13 +53,12 @@ October 29, 2024
 -   [FAQs](#faqs)
 -   [Resources](#resources)
 
-[NextFlow](https://www.nextflow.io/) is a platform to run data analysis
-pipelines written in any language. It provides an abstraction layer
-between a pipeline’s logic and the underlying execution layers.
-Therefore, the pipeline written in [NextFlow](https://www.nextflow.io/)
-is portable.
+[NextFlow](https://www.nextflow.io/) is a platform to creat and run data
+analysis pipelines, and each step or module can be written in any
+language. It lets users focus on a pipeline’s logic and takes of the
+execution on different platforms: write code once, run everywhere.
 
-The implementation of [NextFlow](https://www.nextflow.io/) uses Bash and
+The implementation of [NextFlow](https://www.nextflow.io/) is based on
 Groovy language (a super set of Java). To learn more about Groovy, one
 can check this
 [link](https://www.manning.com/books/groovy-in-action-second-edition).
@@ -566,7 +565,7 @@ Conditional execution
 Note that if a process is skipped, then its output is also skipped, so
 one can’t rely on the output channel.
 
-## file staging
+## File staging
 
 nextflow stages files so that they can be cached/reused in future runs.
 However, if the staging process was interrupted and the file was not
@@ -582,7 +581,7 @@ line, if the path contains wildcard symbols such as ’\*’ and ‘?’, these
 paths need be quoted, otherwise they will be expanded on the command
 line and only first element is passed into program.
 
-## functions
+## Functions
 
 One can define functions in a script as follows:
 
@@ -623,7 +622,7 @@ Some bultin functions:
 Note when specififying parameters, one need use double dashes, such as
 *–greeting nextflow* to provide value for params.greeting.
 
-## directives
+## Directives
 
 Directives defines optional settings that affects the execution of
 current process, without affecting the semantic of the task itself. It
@@ -675,7 +674,7 @@ process {
 }
 ```
 
-## operators
+## Operators
 
 Operators are bultin functions that applied to channels and can be used
 to transform, filter, fork, and combine channels. The full list of
@@ -760,7 +759,7 @@ While local variables are created using keyword *def* as
 
     def localX="for a closure or function"
 
-#### lists
+#### Lists
 
 In addition to simple variables, there are also lists. They are created
 by putting elements in a square-bracket. The examples are below:
@@ -869,7 +868,7 @@ profile defined later has higher priority than the one defined earlier.
 So if profile ‘a’ is defined later, then its setting has higher priority
 than ’b’s.
 
-### syntax
+### Syntax
 
 The syntax to define variales in config files are as follows:
 
@@ -1174,6 +1173,29 @@ override the same options in the earlier profiles.
     stream page, one can see the progress of a job running. The
     ‘container’ section shows the command called and the resources such
     as cpus and memory assigned.
+
+7.  Compute environment
+
+    Compute enviroment is associated with an AWS batch queue, and
+    determines how resources are allocated in the queue. One can let AWS
+    assign any EC2 instance types according to resource requests, or
+    select a list of EC2 instances for the queue to choose from. Note
+    that it is important to specify a diverse of EC2 instances if you do
+    the latter, otherwise nextflow jobs may be stuck at `runnable` for a
+    long time due to lack of specified instance types.
+
+    Also the request memory is better to smaller than the available
+    memory in the target instance. For example, if an instance has 16GB
+    memory, then the request can be 15GB; if 16GB is requested, then
+    this 16GB memory may not satisfy the request and thus won’t be
+    assigned to the requesting task.
+
+    One can update compute environment associated with a AWS batch queue
+    so that new jobs with use the new settings. But note that if some
+    tasks are using a compute environment when updating, the tasks will
+    be terminated (and requeued) after a certain time (given by the
+    timeout option) if the compute enviroment is updated. So it is
+    better to update compute environment when no taks are running in it.
 
 ## Monitoring workflow
 
@@ -1508,6 +1530,10 @@ workflow {
 */
 ```
 
+**Since version 24.07.0-edge: parameters should be used in the entry
+workflow and passed to workflows, processes, and functions as explicit
+inputs. So the methods such as *addParams* and *params* are deprecated**
+
 Another way to set module-specific parameters is to use the option
 *addParams*. Different from *params*, *addParams* exposes all parameters
 in the module, even those not specified in *addParams*. All the
@@ -1827,14 +1853,12 @@ Here are some useful functions from the plugin:
     the following parameter in nextflow.config to a bigger value
     (default: 12 hours):
 
-<!-- -->
+        threadPool.publishDir.maxAwait=48.h
 
-    threadPool.publishDir.maxAwait=48.h
-
-11: When a process task fails, it can be re-submitted for execution. The
-process directive *maxRetries* can be used to control how many
-resubmissions. But note that if a task fails due to *spot* instance
-outbid, the failure is not counted into re-submissions.
+11. When a process task fails, it can be re-submitted for execution. The
+    process directive *maxRetries* can be used to control how many
+    resubmissions. But note that if a task fails due to *spot* instance
+    outbid, the failure is not counted into re-submissions.
 
 12. When setting up AWS batch compute environments, one can either use a
     pre-built AMI, or use a launch template for new instances in the
@@ -1875,6 +1899,25 @@ outbid, the failure is not counted into re-submissions.
     workDir = "/path/to/local/dir"
     bucketDir = "s3://aws-bucket/subfolder"
     ```
+
+16. How does nextflow publish files when using aws batch as the
+    executor?
+
+    Nextflow publish files in the following steps:
+
+    1.  finish the running task, generating all output files
+    2.  copy all output files to a work directory in AWS S3; this step
+        is done by the task’s EC2 instance. The speed is determined by
+        the parameter `aws.batch.maxParallelTransfers` and the number of
+        available CPUs on the EC2 instance. After this is done, the
+        task’s EC2 instance will be terminated or used for another
+        pending task.
+    3.  copy the output files from the work directory to the final
+        output folder given by the `publishDir` directory; this is done
+        by the machine launching the workflow.
+
+    Note that both step b and c can take significant time when output
+    files are big.
 
 ## FAQs
 
@@ -2285,14 +2328,15 @@ outbid, the failure is not counted into re-submissions.
     channel operator or channel factory such as map() or Channel.of(),
     which accept list or values only.
 
-26: How to apply a groovy function on a channel?
+26. How to apply a groovy function on a channel?
 
-    Normally, one can't convert a nextflow channel into any Java objects such as
-    List, Map, etc, so that one can operate on the objects, because a channel operation
-    such as *toList()* or *collect()* still emits a channel object. One workaround is to
-    apply a function via *flatMap()* operator on a converted list, such as below:
+    Normally, one can’t convert a nextflow channel into any Java objects
+    such as List, Map, etc, so that one can operate on the objects,
+    because a channel operation such as *toList()* or *collect()* still
+    emits a channel object. One workaround is to apply a function via
+    *flatMap()* operator on a converted list, such as below:
 
-    ```nextflow
+    ``` nextflow
     nums = Channel.of(1..10)
 
     def get_pair(a) {
@@ -2303,7 +2347,7 @@ outbid, the failure is not counted into re-submissions.
           p.add([a[i],a[j]])
         }
       }
-      
+
       return(p)
     }
 
