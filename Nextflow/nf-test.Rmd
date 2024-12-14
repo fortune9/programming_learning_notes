@@ -228,6 +228,21 @@ and it has the following blocks (check https://nf-co.re/docs/tutorials/tests_and
   ```groovy
   input[0] = file(params.test_data['testdir'] + "/*.csv")
   ```
+
+### Configuration
+
+One can use the nf-test.config to configure how to run nf-test command.
+The available settings can be found at https://www.nf-test.com/docs/configuration/.
+
+If one wants to append commandline options to the nf-test triggered nextflow run,
+one can use *options*. For example, one can use the following to specify
+the working dir for aws batch run:
+
+```
+options "-bucket-dir s3://path/to/workdir"
+```
+
+
   
 ### Debug
 

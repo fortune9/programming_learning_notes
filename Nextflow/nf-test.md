@@ -1,7 +1,7 @@
 nf-test
 ================
 Zhenguo Zhang
-18 September, 2024
+14 December, 2024
 
 -   [Languages in nf-test](#languages-in-nf-test)
 -   [Snapshots](#snapshots)
@@ -11,6 +11,7 @@ Zhenguo Zhang
 -   [Running tests](#running-tests)
 -   [assertions](#assertions)
 -   [writing main.nf.test](#writing-mainnftest)
+-   [Configuration](#configuration)
 -   [Debug](#debug)
 
 *nf-test* is designed to test nextflow modules, workflows and pipelines,
@@ -221,6 +222,18 @@ and <https://www.nf-test.com/docs/getting-started>):
     ``` groovy
     input[0] = file(params.test_data['testdir'] + "/*.csv")
     ```
+
+### Configuration
+
+One can use the nf-test.config to configure how to run nf-test command.
+The available settings can be found at
+<https://www.nf-test.com/docs/configuration/>.
+
+If one wants to append commandline options to the nf-test triggered
+nextflow run, one can use *options*. For example, one can use the
+following to specify the working dir for aws batch run:
+
+    options "-bucket-dir s3://path/to/workdir"
 
 ### Debug
 
