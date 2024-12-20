@@ -1,6 +1,6 @@
 R package
 ================
-July 25, 2023
+December 19, 2024
 
 -   [The package `devtools`](#the-package-devtools)
     -   [Useful functions](#useful-functions)
@@ -75,16 +75,17 @@ details.
 
 -   file format
 
-    | Section           | Explanation                                                                                                                                     |
-    |-------------------|:------------------------------------------------------------------------------------------------------------------------------------------------|
-    | Imports           | packages needed for work. These will be installed automatically if not installed yet.                                                           |
-    | Suggests          | packages helpful but not required; not installed automatically                                                                                  |
-    | Depends           | similar to Imports, but it also attaches (not just load) a package only if your package is also attached, so should use Imports for most cases. |
-    | LinkingTo         | packages relying on C/C++ code.                                                                                                                 |
-    | Enhances          | packages to which your package enhances, such as providing methods for classes in these enhanced packages.                                      |
-    | Title/Description | what the package does                                                                                                                           |
-    | <Author@R>        | authors/contributors of the package. R code such as person() is used.                                                                           |
-    | biocViews:        | Add this section will allow install\_github() to find dependent packages in both CRAN and bioconductor.                                         |
+    | Section           | Explanation                                                                                                                                                          |
+    |-------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | Imports           | packages needed for work. These will be installed automatically if not installed yet.                                                                                |
+    | Suggests          | packages helpful but not required; not installed automatically                                                                                                       |
+    | Depends           | similar to Imports, but it also attaches (not just load) a package only if your package is also attached, so should use Imports for most cases.                      |
+    | LinkingTo         | packages relying on C/C++ code.                                                                                                                                      |
+    | Enhances          | packages to which your package enhances, such as providing methods for classes in these enhanced packages.                                                           |
+    | Title/Description | what the package does                                                                                                                                                |
+    | <Author@R>        | authors/contributors of the package. R code such as person() is used.                                                                                                |
+    | biocViews:        | Add this section will allow install\_github() and remotes::install\_deps() to find dependent packages in both CRAN and bioconductor.                                 |
+    | Remotes:          | add other sources for downloading packages, having higher priority than CRAN/Bioconductor. See <https://devtools.r-lib.org/articles/dependencies.html#other-sources> |
 
 ### *NAMESPACE* file
 
