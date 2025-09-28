@@ -324,7 +324,7 @@ ENV e.g.: ENV conf /path/to/configure                                           
 CMD e.g.: CMD [“./start.sh”, “param1”, “param2”]                                   | run these commands when creating a container from the image. Will be the parameters if ENTRYPOINT is set. If multiple CMD directives, only the last one would be used.
 ENTRYPOINT                                                                         | default command to execute when container starts running. If omitted, one can use CMD to specify the default program. The entrypoint can be overriden command line using option --entrypoint "new-command".
 WORKDIR                                                                            | set the current working dir and following commands. Safter than ‘cd’ command. Can be set multiple times.
-USER                                                                               | set user/UID for a new container from the image
+USER                                                                               | set user/UID for a new container from the image. This will ensure the user access all environment variables set in Dockerfile.
 VOLUME: e.g.: VOLUME [“/var/log”, “/home/ubuntu”], or VOLUME /var/log /home/ubuntu | create mounting points for external host/other containers’ directories, allowing the created container access these directories in the docker image. When starting a container, one need specify what host directories are used for mounting these exposed volumes. Accept both json array and plain string as values.
 COPY                                                                               | copy new files/dirs to the file system of the container. Similar to ADD
 EXPOSE, e.g.: EXPOSE 80 666                                                        | specify which network ports a running container will listen to.
@@ -580,5 +580,33 @@ The requirements for parser directives:
             docker buildx build --ssh github=$SSH_AUTH_SOCK -f Dockerfile .
             ```
         
+        **Note** put the following line as the first line in Dockerfile to make sure
+        buildkit is activated
+        
+        ```
+        # syntax=docker/dockerfile:1
+        ```
+        
         One can find information on how to access other secrets such as AWS credentials
         from this [page](https://docs.docker.com/reference/dockerfile/#run---mounttypesecret).
+
+- How to install an R package from a private github/gitlab repo in Dockerfile?
+
+    The approach is similar to the above setting for cloning a private repo. The only change
+    is for step 2, as belows:
+    
+    ```
+    # add the repo host to know_hosts if not done yet in previous stages
+    # RUN mkdir -p -m 0700 ~/.ssh && ssh-keyscan github.com >> ~/.ssh/known_hosts
+    RUN --mount=type=ssh,id=github \
+        R -e "install.packages('remotes'); remotes::install_git('git@github.com:fortune9/r-package.git@tag-1')" \
+        && rm -rf /tmp/*
+    ```
+    
+    In this way, we don't need to pass a PAT or environment variable to install
+    the private R package. We also specified a specific commit using the tag 'tag-1',
+    which can be replaced with commit hash, branch, or other tags.
+    
+    Note that I tested 'remotes::install_gitlab()' and it seemed not working, so used
+    'remotes::install_git()' instead.
+    
