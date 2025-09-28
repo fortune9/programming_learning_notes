@@ -21,7 +21,9 @@ for file_type in "${file_types[@]}"; do
         # Check if the file has been modified
         if [ -f "$file_name" ]; then
             # Render the RMarkdown file
-            $exe -e "rmarkdown::render('$file_name')" || exit 2
+            $exe -e "rmarkdown::render('$file_name',
+			output_format='github_document',
+			output_options=list(toc=TRUE))" || exit 2
             # Add the rendered file to the staging area
             git add "${file_name%.$file_type}.md"
 		else
