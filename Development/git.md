@@ -1,7 +1,7 @@
 Git usage summary
 ================
 Zhenguo Zhang
-July 21, 2024
+September 28, 2025
 
 -   [Git architecture](#git-architecture)
     -   [Important terms](#important-terms)
@@ -16,6 +16,7 @@ July 21, 2024
     -   [Linking issues and pull
         requests](#linking-issues-and-pull-requests)
 -   [Git hooks](#git-hooks)
+    -   [How to run pre-commit hooks](#how-to-run-pre-commit-hooks)
 -   [FAQs](#faqs)
 
 ## Git architecture
@@ -484,6 +485,91 @@ already has a config file, then this command will not create a new
 to add hooks; refer to the config file “pre-commit-config-proj.yaml”
 coming with the R package ‘precommit’ for format, which can be located
 with system.file(“pre-commit-config-proj.yaml”, package=“precommit”).
+
+### How to run pre-commit hooks
+
+In default, when one runs `git commit`, the hooks (defined in
+.pre-commit-config.yaml ) will be run automatically.
+
+Alternatively, one can also run pre-commit manually in the following
+ways.
+
+To run all hooks on all files:
+
+``` bash
+# Run all hooks on all files
+pre-commit run --all-files
+
+# Run with verbose output
+pre-commit run --all-files --verbose
+
+# Show what would be changed without actually changing
+pre-commit run --all-files --show-diff-on-failure
+```
+
+To run all hooks on specific files:
+
+``` bash
+# Run on specific files
+pre-commit run --files src/python_calculator/calculator.py
+
+# Run on multiple specific files
+pre-commit run --files src/python_calculator/calculator.py src/python_calculator/ui.py
+
+# Run on all Python files
+pre-commit run --files "*.py"
+
+# Run on files in a directory
+pre-commit run --files src/
+```
+
+To run a specific hook, say flake8
+
+``` bash
+# Test only the flake8 hook
+pre-commit run flake8 --all-files
+
+# Test flake8 on specific files
+pre-commit run flake8 --files src/python_calculator/calculator.py
+
+# Test flake8 on a specific directory
+pre-commit run flake8 --files src/
+```
+
+To run hooks under different stages:
+
+``` bash
+# Run commit-stage hooks (default)
+pre-commit run --hook-stage commit
+
+# Run pre-commit hooks (before commit)
+pre-commit run --hook-stage pre-commit
+
+# Run post-commit hooks
+pre-commit run --hook-stage post-commit
+
+# Run push hooks
+pre-commit run --hook-stage push
+```
+
+Trouble-shooting commands:
+
+``` bash
+# See hook versions
+pre-commit --version
+
+# Clean the pre-commit cache
+pre-commit clean
+
+# Try running with more info
+pre-commit run --all-files --verbose
+
+# Skip environment installation (use existing)
+pre-commit run --all-files --no-install
+```
+
+Note that if a hook installs a tool such as black, it can only be called
+by hooks, not by users. To use the tool, install it separately.
 
 ## FAQs
 
