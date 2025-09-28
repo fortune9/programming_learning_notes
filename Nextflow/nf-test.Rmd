@@ -171,6 +171,34 @@ See this [video](https://www.youtube.com/watch?v=K9B7JRkMpQ4) for an introductio
   nf-test test  /path/to/modules/folder/my_module.nf.test --update-snapshot
   ```
 
+- Run tests with container
+
+  When a module needs a container to run, specified either in the process .nf file
+  or at the beginning of a test block in main.nf.test, one needs to enable docker
+  when running nf-test. To do so, one can define a profile in nf-test.config like this
+
+  ```
+  profiles {
+    docker {
+      docker.enabled = true
+      docker.userEmulation = false
+      docker.fixOwnership = true
+      docker.runOptions = '--platform=linux/amd64'
+    }
+  }
+  ```
+
+  just like in normal nextflow.config file in a pipeline.
+
+  And then run
+
+  ```
+  nf-test test --profile docker /path/to/main.nf.test
+  ```
+
+  Note that if the container isn't available locally, it will be pulled down from the URL
+  given by docker.registry such as docker.registry='quay.io'.
+
 ### assertions
 
 Check the link https://nf-co.re/docs/contributing/nf-test/assertions
