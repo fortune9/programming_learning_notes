@@ -1,7 +1,7 @@
 Python learning notes
 ================
 Zhenguo Zhang
-September 13, 2024
+September 28, 2025
 
 -   [Variables](#variables)
     -   [Python data types](#python-data-types)
@@ -42,6 +42,12 @@ September 13, 2024
     -   [Tips](#tips)
 -   [Notebooks](#notebooks)
     -   [Notebook hosting services](#notebook-hosting-services)
+-   [Python versions and virtual
+    environments](#python-versions-and-virtual-environments)
+    -   [Multiple python versions](#multiple-python-versions)
+    -   [Virtual environments](#virtual-environments)
+    -   [Use virtual environment with
+        pyenv](#use-virtual-environment-with-pyenv)
 
 ## Variables
 
@@ -809,3 +815,108 @@ u“hello” \| “hello” \| Supported as default in python 3
 | commuter        | read notebooks from a local directory or S3 service                   |
 | Colaboratory    | google’s host for python notebooks                                    |
 | cocalc          | collaborative and share private notebooks                             |
+
+## Python versions and virtual environments
+
+### Multiple python versions
+
+To manage multiple versions of python, one can use the tool
+[pyenv](https://github.com/pyenv/pyenv) for Linux/MacOS and
+[pyenv-win](https://github.com/pyenv-win/pyenv-win) for Windows.
+
+For details, check my post at
+<https://fortune9.netlify.app/2025/09/25/python-how-to-install-pyenv-win/>
+
+### Virtual environments
+
+One can create a virtual environment by running
+
+``` bash
+python -m venv /path/to/new/virtual/environment
+```
+
+This command basically does the following:
+
+-   places a pyvenv.cfg file in environment folder, which contains a
+    `home` key pointing to the Python interpreter which creates the
+    environment. The file also contains the full command creating the
+    environment.
+
+-   creates a bin (or Scripts on Windows) subdirectory containing a copy
+    or symlink of the Python and pip executables as well as activation
+    scripts.
+
+-   creates a lib/pythonX.Y/site-packages subdirectory (on Windows, this
+    is Lib-packages).
+
+When the virtual environment is activated, the activation prepends the
+bin or scripts directory to your PATH, so that running `python` will
+invoke the environment’s Python interpreter.
+
+Therefore, it is essentially the same by calling the python executable
+using the full path `/<path-to-venv>/bin/python` without activating it.
+
+To test whether an environment is activated, one can check
+
+-   VIRTUAL\_ENV environment variable is set to the path of the
+    environment.
+-   check if sys.prefix != sys.base\_prefix is true
+
+When used from within a virtual environment, common installation tools
+such as pip will install Python packages into a virtual environment
+without needing to be told to do so explicitly.
+
+A virtual environment is (amongst other things):
+
+-   Contain a specific Python interpreter and software libraries and
+    binaries which are needed to support a project (library or
+    application), by default isolated from software in other virtual
+    environments and Python interpreters and libraries installed in the
+    operating system.
+
+-   Contained in a directory, conventionally named .venv or venv in the
+    project directory, or under a container directory for lots of
+    virtual environments, such as \~/.virtualenvs.
+
+-   Not checked into source control systems such as Git.
+
+-   Considered as disposable – it should be simple to delete and
+    recreate it from scratch. You don’t place any project code in the
+    environment.
+
+-   Not considered as movable or copyable – you just recreate the same
+    environment in the target location.
+
+Read more about virtual environment at
+<https://docs.python.org/3/library/venv.html>
+
+### Use virtual environment with pyenv
+
+The python versions installed using `pyenv` may not work with venv. To
+create virtual environments using pyenv, one need to
+
+-   install pyenv-virtualenv plugin for pyenv in Linux/MacOS,
+    <https://github.com/pyenv/pyenv-virtualenv>
+
+    ``` bash
+    # To create an environment: 
+    pyenv virtualenv <python-version> <env-name>.
+    # to activate an environment
+    pyenv activate <env-name>
+    # to deactivate
+    pyenv deactivate
+    ```
+
+-   install <https://github.com/pyenv-win/pyenv-win-venv> for pyenv-win
+    in Windows
+
+    ``` bash
+    # To create an environment
+    pyenv-venv install <pathon-version> <env-name>
+    # to activate
+    pyenv-venv activate <env-name>
+    # to deactivate
+    pyenv-venv deactivate
+    # to uninstall environment
+    pyenv-venv uninstall <env-name>
+    ```
