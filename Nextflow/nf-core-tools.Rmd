@@ -289,6 +289,8 @@ for a pipeline. One can find more description of schema at https://nextflow-io.g
 To understand the general format of json-schema, one can check this page
 https://json-schema.org/understanding-json-schema.
 
+To see the nf-core commands, check this page https://nf-co.re/docs/nf-core-tools/pipelines/schema.
+
 - Two types of schema
   + pipeline schema: https://nextflow-io.github.io/nf-schema/latest/nextflow_schema/nextflow_schema_specification/
   + samplesheet schema: https://nextflow-io.github.io/nf-schema/latest/nextflow_schema/sample_sheet_schema_specification/
@@ -296,10 +298,10 @@ https://json-schema.org/understanding-json-schema.
 - Update schema
 
   After adding some parameters in any config files such as nextflow.config, run the following to open an interactive interface
-  to update pipeline schema
+  (https://nf-co.re/pipeline_schema_builder) to update pipeline schema
   
   ```
-  nf-core schema build
+  nf-core pipelines schema build
   ```
 
   The tool will run the nextflow config command to extract your pipeline's configuration and compare the output to your nextflow_schema.json file (if it exists). It will prompt you to update the schema file with any changes, then it will ask if you wish to edit the schema using the web interface.
@@ -311,7 +313,7 @@ https://json-schema.org/understanding-json-schema.
   One can display a pipeline schema in markdown or html format using the command
   
   ```
-  nf-core schema docs <pipeline>
+  nf-core pipelines schema docs <pipeline>
   ```
 
 - Parameter validation
@@ -333,9 +335,15 @@ will be tested later during validation.
   To validate the parameters in a file, say, params.json, one can run the command
   
   ```
-  nf-core schema validate <pipeline> params.json
+  nf-core pipelines schema validate <pipeline> params.json
   ```
 
+- Add or update parameters
+
+  To add new parameters to a schema or update one, one can follow these steps:
+
+  1. add parameters into nextflow.config `params` scope or modify it in the config file.
+  2. run `nf-core pipelines schema build` to open a web UI to modify it.
 
 ## Private repositories
 

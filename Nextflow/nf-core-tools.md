@@ -1,7 +1,7 @@
 nf-core tools
 ================
 Zhenguo Zhang
-25 June, 2024
+28 September, 2025
 
 -   [Configuration](#configuration)
     -   [config file .nf-core.yml](#config-file-nf-coreyml)
@@ -285,6 +285,9 @@ descriptions for a pipeline. One can find more description of schema at
 To understand the general format of json-schema, one can check this page
 <https://json-schema.org/understanding-json-schema>.
 
+To see the nf-core commands, check this page
+<https://nf-co.re/docs/nf-core-tools/pipelines/schema>.
+
 -   Two types of schema
 
     -   pipeline schema:
@@ -296,9 +299,10 @@ To understand the general format of json-schema, one can check this page
 
     After adding some parameters in any config files such as
     nextflow.config, run the following to open an interactive interface
-    to update pipeline schema
+    (<https://nf-co.re/pipeline_schema_builder>) to update pipeline
+    schema
 
-        nf-core schema build
+        nf-core pipelines schema build
 
     The tool will run the nextflow config command to extract your
     pipeline’s configuration and compare the output to your
@@ -315,7 +319,7 @@ To understand the general format of json-schema, one can check this page
     One can display a pipeline schema in markdown or html format using
     the command
 
-        nf-core schema docs <pipeline>
+        nf-core pipelines schema docs <pipeline>
 
 -   Parameter validation
 
@@ -338,7 +342,17 @@ To understand the general format of json-schema, one can check this page
     To validate the parameters in a file, say, params.json, one can run
     the command
 
-        nf-core schema validate <pipeline> params.json
+        nf-core pipelines schema validate <pipeline> params.json
+
+-   Add or update parameters
+
+    To add new parameters to a schema or update one, one can follow
+    these steps:
+
+    1.  add parameters into nextflow.config `params` scope or modify it
+        in the config file.
+    2.  run `nf-core pipelines schema build` to open a web UI to modify
+        it.
 
 ## Private repositories
 
