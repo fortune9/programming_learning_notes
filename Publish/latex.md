@@ -25,10 +25,10 @@ Zhenguo Zhang
 
 ## Overview
 
-This document collects practical LaTeX tips and tricks. The original
-notes have been grouped into related sections (installation, macros,
-tables, floats, headers/footers, TikZ, etc.) and formatted as R Markdown
-for easier reading.
+This document collects practical LaTeX tips and tricks. The notes have
+been grouped into related sections (installation, macros, tables,
+floats, headers/footers, TikZ, etc.) and formatted as R Markdown for
+easier reading.
 
 ## Installing and making packages available
 
@@ -46,8 +46,8 @@ for easier reading.
     -   (Less reliable) Use `\usepackage{C:/foo/foo}` in your document
         and add `\ProvidesPackage{C:/foo/foo}` inside the `.sty` file.
 
--   For a standalone TeX Live or module-based install, see community
-    answers such as:
+-   To install TeXLive for loading with modules, see community answers
+    such as:
     <http://tex.stackexchange.com/questions/140649/tex-live-2013-on-red-hat-6-4>
 
 ## Macros and commands
@@ -75,9 +75,14 @@ Key points about defining and using macros:
     environment are local to that group; use `\global\def` to make
     global changes.
 
--   Macro names can only contain letters in user documents. The
-    character `@` is usually not a letter; use `\makeatletter` /
-    `\makeatother` when editing package internals.
+-   In Latex, each character is assigned a catcode, for normal letters
+    like A-Z and a-z, they have catcode 11, and `@` has catcode 12. Only
+    catcode 11 characters can be used in macro names in user document,
+    but `@` can be used in macro-names in Latex packages and classes,
+    which reduces the accidental conflict from user space. However,
+    sometimes user may want to use `@` in macro names or modify a
+    package, then one should put such statements between and , reading
+    as regarding `@` as letter and the reverse.
 
 -   When a macro like `\mac` is followed immediately by text, LaTeX may
     eat the following space. To force a space use `\mac{}` or define the
@@ -131,16 +136,20 @@ within the preamble.
 
 ## Registers and lengths
 
+registers/internal values are special macros behaving like variables, to
+see their values such as `\textwidth`, one must use `\the\textwidth`.
+
 LaTeX/TeX register types and basic commands:
 
--   `\newbox`, `\setbox`, `\box` — box registers.
--   `\newcount`, integers and `\number` to print.
--   `\newdimen`, lengths and `\the` to print lengths.
--   `\newmuskip`, `\newskip` — glue registers; print with `\the`.
--   `\newtoks` — token registers; use `\the` to inspect.
--   LaTeX provides higher-level length helpers: `\newlength`,
-    `\setlength`, `\addtolength`, `\settowidth`, `\settoheight`,
-    `\settodepth`, `\the` to print.
+| Type                     | Meaning                                       | Create variable       | Change values               | Print value       | Comment |
+|--------------------------|-----------------------------------------------|-----------------------|-----------------------------|-------------------|---------|
+| box                      | One box                                       | `\newbox\mybox`       | `\setbox\mybox=\hbox{blah}` | `\box\mybox`      | TeX     |
+| count                    | Integer                                       | `\newcount\mycount`   | `\mycount=42`               | `\number\mycount` |         |
+| dimen                    | Length                                        | `\newdimen\mylength`  | `\mylength=1in`             | `\the\mylength`   |         |
+| muskip                   | A glue in mu units                            | `\newmuskip\mymuskip` | `\mymuskip=3`               | `\the\mymuskip`   |         |
+| skip                     | A glue                                        | `\newskip\myskip`     | `\myskip=13pt`              | `\the\myskip`     |         |
+| toks                     | A sequence of tokens                          | `\newtoks\mytoks`     | `\mytoks={some tokens}`     | `\the\mytoks`     |         |
+| length related variables | e.g. `\textwidth`, `\linewidth`, `\parindent` | `\newlength\mylen`    | `\setlength\mylen{10pt}`    | `\the\<length>`   | LaTeX   |
 
 ## Arithmetic and calculations
 
@@ -191,13 +200,28 @@ Tips:
 -   Control page numbering and styles: `\pagenumbering{roman}`,
     `\pagestyle{plain}`, `\thispagestyle{plain}`.
 
--   Use `fancyhdr` to customize headers/footers. Common commands:
+-   Use `fancyhdr` to customize headers/footers. The symbols `E` and `O`
+    represent even and odd pages, `L`, `C`, and `R` represent left,
+    center, and right, and `H` and `F` represent header and footer,
+    respectively. These symbols can be at the `position` place of
+    fancyhdr’s commands, such as `\fancyfoot[LO,CE]{From: K. Grant}`
+    means put the string at the left of odd page’s foot and at the
+    center of even page’s foot. Common commands include:
 
-    -   `\lhead{}`, `\chead{}`, `\rhead{}` (left/center/right header)
-    -   `\lfoot{}`, `\cfoot{}`, `\rfoot{}` (footers)
-    -   `\fancypagestyle{plain}{...}` to redefine `plain` style
-    -   `\headrulewidth`, `\footrulewidth`, `\headwidth`,
-        `\fancyhfoffset[<place>]{<len>}`
+    | Command                                        | Description                                                                                                                                                                                                                                    |
+    |------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+    | `\thepage`                                     | Current page number                                                                                                                                                                                                                            |
+    | `\thispagestyle{plain}`                        | Set page style for current page and thereafter                                                                                                                                                                                                 |
+    | `\fancyfoot[pos]{param}`                       | Add footer, which is equivalent to `\fancyhf[F]{param}`                                                                                                                                                                                        |
+    | `\fancyhead[pos]{param}`                       | Add header, which is equivalent to `\fancyhf[H]{param}`                                                                                                                                                                                        |
+    | `\fancyhf[pos]{param}`                         | The same as above two but can operate at both footer and header.                                                                                                                                                                               |
+    | `\fancypagestyle{plain}{definition}`           | Redefine page style                                                                                                                                                                                                                            |
+    | `\headrulewidth{}`                             | The width of the line under the header                                                                                                                                                                                                         |
+    | `\footrulewidth{}`                             | The width of the line above the footer                                                                                                                                                                                                         |
+    | `\lhead{}`, `\rhead{}`, `\lfoot{}`, `\rfoot{}` | The abbreviations of the above methods for setting up the left/right header/footer.                                                                                                                                                            |
+    | `\headrule{}`, `\footrule{}`                   | Further control to the two lines                                                                                                                                                                                                               |
+    | `\headwidth{}`                                 | The width of header and footer, can be changed with `\addtolength{}` or `\setlength{}`, such as `\addtolength{\headwidth}{\marginparsep}` and `\addtolength{\headwidth}{\marginparwidth}` will make header/footer occupy the whole page width. |
+    | `\fancyhfoffset[place]{length}`                | Set the horizontal positions of header and footer                                                                                                                                                                                              |
 
 ## Tabular and table environments
 
@@ -205,14 +229,16 @@ Tips:
     `c`, or `b` and `<spec>` contains column specs such as `l`, `c`,
     `r`, `p{<width>}`, `m{<width>}`, `b{<width>}` (the `array` package
     required for `m`/`b`).
--   Column specifiers: `l`, `c`, `r`, `p{<width>}`, `m{<width>}`,
-    `b{<width>}`, `|` for vertical rules.
+-   Column specifiers: `l`, `c`, `r`, for horizontal alignment.
+-   Column specifiers:`p{<width>}`, `m{<width>}`, `b{<width>}`, `|` for
+    vertical rules.
 -   For wider control use `tabular*`, `tabularx`, or `longtable` for
     multipage tables.
 
 ## TikZ and pgfplots
 
--   TikZ (PGF) is powerful for drawing graphics. Common primitives:
+-   TikZ (based on PGF) is powerful for drawing graphics. Common
+    primitives:
 
     -   `\draw`, `\fill`, `\filldraw` — draw paths and shapes.
     -   `\node` — place text nodes.
@@ -226,6 +252,23 @@ Tips:
 
 -   To draw functions:
     `\draw [domain=<xmin>:<xmax>] plot (\x, {<function>});`.
+
+-   One can also generate single standalone figures using the
+    pgfplots/tikz packages, to do so, one need add the following
+    directives in the preamble of Latex file: `\usepackage{pgfplots} %`
+    in some systems, the package may be replaced by `tikz`
+    `\usepgfplotslibrary{external} %` or `\usetikzlibrary{external}`
+    `\tikzexternalize[shell escape=-enable-write18] %` needed for the
+    MiKTeX compiler
+
+    For unknown reason, in windows with MikTex, we need
+    `\usepackage{pgfplots}` and it seems no the package `tikz`. One can
+    use the option to put all figures a folder and
+    `\tikzsetnextfilename{file-name}` to set file name for next figure.
+    When compiling such Latex file, one need the option `–enable-shell`
+    or `–enable-write18` for the command latex or pdflatex. One can also
+    control how the figures are produced using the directive like
+    `\tikzset{external/system call={pdflatex \tikzexternalcheckshellescape    -halt-on-error -enable-write18  -interaction=batchmode -jobname "\image" "\texsource" && pdftops -eps "\image".pdf}}`.
 
 ### Externalizing TikZ figures
 
@@ -245,6 +288,10 @@ Tips:
     call can be customized to run `pdflatex` and convert PDFs to EPS if
     needed.
 
+-   By default, the unit of dimensions is centimeter. One can use
+    options `[x=1mm,y=1mm]` to change this when using
+    `\begin{tikzpicture}[x=1mm,y=1mm]`.
+
 ## R and tikzDevice
 
 -   R’s `tikzDevice` produces LaTeX-friendly plots. It requires LaTeX
@@ -261,6 +308,8 @@ Tips:
     include EPS graphics.
 -   `\stretch{<factor>}` is useful for distributing flexible space,
     e.g. `x \hspace{\stretch{2}} x \hspace{\stretch{1}} x`.
+-   Use `\phantom{<content>}` to create an invisible box with the same
+    size as `<content>`, useful for alignment.
 
 ## References and further reading
 
@@ -268,6 +317,3 @@ Tips:
     excellent resource for detailed questions.
 
 ------------------------------------------------------------------------
-
-*Reformatting complete: content grouped, LaTeX commands preserved in
-code blocks where appropriate.*
