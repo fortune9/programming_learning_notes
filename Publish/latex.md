@@ -1,0 +1,273 @@
+LaTex
+================
+Zhenguo Zhang
+14 October, 2025
+
+-   [Overview](#overview)
+-   [Installing and making packages
+    available](#installing-and-making-packages-available)
+-   [Macros and commands](#macros-and-commands)
+    -   [Inspecting a macro](#inspecting-a-macro)
+-   [Code snippet: non-breaking horizontal rules in
+    tables](#code-snippet-non-breaking-horizontal-rules-in-tables)
+-   [Line breaks and vertical
+    spacing](#line-breaks-and-vertical-spacing)
+-   [Registers and lengths](#registers-and-lengths)
+-   [Arithmetic and calculations](#arithmetic-and-calculations)
+-   [Floats: rules and parameters](#floats-rules-and-parameters)
+-   [Headers and footers (fancyhdr)](#headers-and-footers-fancyhdr)
+-   [Tabular and table environments](#tabular-and-table-environments)
+-   [TikZ and pgfplots](#tikz-and-pgfplots)
+    -   [Externalizing TikZ figures](#externalizing-tikz-figures)
+-   [R and tikzDevice](#r-and-tikzdevice)
+-   [Misc tips](#misc-tips)
+-   [References and further reading](#references-and-further-reading)
+
+## Overview
+
+This document collects practical LaTeX tips and tricks. The original
+notes have been grouped into related sections (installation, macros,
+tables, floats, headers/footers, TikZ, etc.) and formatted as R Markdown
+for easier reading.
+
+## Installing and making packages available
+
+-   To install extra packages, follow general guides such as:
+    <http://en.wikibooks.org/wiki/LaTeX/Installing_Extra_Packages>.
+    Note: if TeX Live was installed via a Linux package manager
+    (e.g. apt-get), `tlmgr` may not be available and manual installation
+    might be required.
+
+-   Ways to make LaTeX find installed packages:
+
+    -   Put packages in `~/texmf` (standard local tree).
+    -   Set the `TEXINPUTS` environment variable,
+        e.g. `export TEXINPUTS=".:~/latex:"`.
+    -   (Less reliable) Use `\usepackage{C:/foo/foo}` in your document
+        and add `\ProvidesPackage{C:/foo/foo}` inside the `.sty` file.
+
+-   For a standalone TeX Live or module-based install, see community
+    answers such as:
+    <http://tex.stackexchange.com/questions/140649/tex-live-2013-on-red-hat-6-4>
+
+## Macros and commands
+
+Key points about defining and using macros:
+
+-   LaTeX macros must be called exactly as defined. Example: if defined
+    as `\def\mymac #1 #2..{This is #1 and that is #2}`, call with
+    `\mymac a b..`.
+
+-   `\newcommand` (LaTeX) is a safer wrapper around `\def` (TeX
+    primitive). `\newcommand` errors if the name exists; `\def`
+    overwrites without warning.
+
+-   Differences between `\let`, `\def`, and `\newcommand`:
+
+    -   `\let\foo\bar` copies the current meaning of `\bar` into `\foo`
+        (evaluated at assignment time).
+    -   `\def\foo{\bar}` makes `\foo` expand to the value of `\bar` at
+        use time.
+    -   `\newcommand` behaves like `\long\def` and supports a
+        declarative argument count and a single optional argument.
+
+-   Macro scope follows grouping rules: macros defined in a group or
+    environment are local to that group; use `\global\def` to make
+    global changes.
+
+-   Macro names can only contain letters in user documents. The
+    character `@` is usually not a letter; use `\makeatletter` /
+    `\makeatother` when editing package internals.
+
+-   When a macro like `\mac` is followed immediately by text, LaTeX may
+    eat the following space. To force a space use `\mac{}` or define the
+    macro with the `xspace` package and `\xspace`.
+
+### Inspecting a macro
+
+-   Use `\show\<macro>` from an interactive TeX session to inspect a
+    macro’s definition (run `latex` in a shell and type the command).
+
+## Code snippet: non-breaking horizontal rules in tables
+
+The following commands create `\nobreakhline` and `\nobreakcline` which
+avoid page breaks inside the rule (keeps it with the table row). Use
+within the preamble.
+
+``` tex
+\makeatletter
+\newcommand\nobreakhline{%
+  \multispan\LT@cols
+  \unskip\leaders\hrule\@height\arrayrulewidth\hfill\\*}
+\newcommand\nobreakcline[1]{\@nobreakcline#1\@nil}%
+\def\@nobreakcline#1-#2\@nil{%
+  \omit
+  \@multicnt#1%
+  \advance\@multispan\m@ne
+  \ifnum\@multicnt=\@ne\@firstofone{&\omit}\fi
+  \@multicnt#2%
+  \advance\@multispan-#1%
+  \advance\@multispan\@ne
+  \leaders\hrule\@height\arrayrulewidth\hfill\\*
+  \noalign{\vskip-\arrayrulewidth}}
+\makeatother
+```
+
+## Line breaks and vertical spacing
+
+-   Ways to insert a line break: `\newline`, `\\` (redefined in some
+    environments), `\tabularnewline`, `\par`.
+
+-   Vertical spacing tricks for table rows:
+
+    -   `\setlength{\extrarowheight}{<pt>}`
+    -   `\\[<pt>]` (add extra space after a row)
+    -   `\rule[raise]{0pt}{<height>}`: prepend to a cell to create a
+        strut (zero-width) that sets row height.
+    -   `\renewcommand{\arraystretch}{<factor>}` (requires `array`
+        package)
+    -   `\vspace{<len>}` (can be negative); `\stretch{<factor>}` is
+        useful inside flexible spaces.
+
+## Registers and lengths
+
+LaTeX/TeX register types and basic commands:
+
+-   `\newbox`, `\setbox`, `\box` — box registers.
+-   `\newcount`, integers and `\number` to print.
+-   `\newdimen`, lengths and `\the` to print lengths.
+-   `\newmuskip`, `\newskip` — glue registers; print with `\the`.
+-   `\newtoks` — token registers; use `\the` to inspect.
+-   LaTeX provides higher-level length helpers: `\newlength`,
+    `\setlength`, `\addtolength`, `\settowidth`, `\settoheight`,
+    `\settodepth`, `\the` to print.
+
+## Arithmetic and calculations
+
+-   Use packages such as `fp` or `calc` to perform arithmetic inside
+    LaTeX. `fp` is generally easier for floating-point calculations.
+
+## Floats: rules and parameters
+
+Floats are placed according to a deterministic algorithm. Key points:
+
+-   Float classes: `figure`, `table` (you can define additional float
+    classes via packages).
+-   Placement specifiers: `h` (here), `t` (top), `b` (bottom), `p`
+    (float page), `!` (override some constraints). `H` from the `float`
+    package forces placement.
+-   LaTeX tries areas in this order: here → top → bottom → float
+    page/column → top of next page → bottom of next page. Restrictions
+    remove possibilities.
+-   If a float can’t be placed it goes into a holding queue and is
+    reconsidered when starting a new page; `\clearpage` flushes the
+    queue (and forces a page break). Use `\FloatBarrier` from `placeins`
+    to flush without always forcing a new page.
+
+Important float parameters (defaults shown):
+
+-   `totalnumber` (3) — max floats per text column.
+-   `topnumber` (2), `bottomnumber` (1), `dbltopnumber` (2)
+-   `\topfraction` (0.7), `\bottomfraction` (0.3), `\dbltopfraction`
+    (0.7)
+-   `\textfraction` (0.2)
+-   `\floatsep`, `\dblfloatsep`, `\textfloatsep`, `\dbltextfloatsep`,
+    `\intextsep`
+-   `\floatpagefraction` (0.5) — minimal fraction a float page must be
+    occupied.
+
+Tips:
+
+-   Two-column floats are queued and often need to appear earlier in
+    source to be placed at the top.
+-   Two-column floats are rarely placed at the bottom except at document
+    end or with `\clearpage`.
+-   Use `stfloats` to allow two-column floats at page bottoms;
+    `placeins`/`\FloatBarrier` to control float migration; `float`/`H`
+    to force placement.
+
+## Headers and footers (fancyhdr)
+
+-   Control page numbering and styles: `\pagenumbering{roman}`,
+    `\pagestyle{plain}`, `\thispagestyle{plain}`.
+
+-   Use `fancyhdr` to customize headers/footers. Common commands:
+
+    -   `\lhead{}`, `\chead{}`, `\rhead{}` (left/center/right header)
+    -   `\lfoot{}`, `\cfoot{}`, `\rfoot{}` (footers)
+    -   `\fancypagestyle{plain}{...}` to redefine `plain` style
+    -   `\headrulewidth`, `\footrulewidth`, `\headwidth`,
+        `\fancyhfoffset[<place>]{<len>}`
+
+## Tabular and table environments
+
+-   Basic syntax: `\begin{tabular}[<pos>]{<spec>}` where `<pos>` is `t`,
+    `c`, or `b` and `<spec>` contains column specs such as `l`, `c`,
+    `r`, `p{<width>}`, `m{<width>}`, `b{<width>}` (the `array` package
+    required for `m`/`b`).
+-   Column specifiers: `l`, `c`, `r`, `p{<width>}`, `m{<width>}`,
+    `b{<width>}`, `|` for vertical rules.
+-   For wider control use `tabular*`, `tabularx`, or `longtable` for
+    multipage tables.
+
+## TikZ and pgfplots
+
+-   TikZ (PGF) is powerful for drawing graphics. Common primitives:
+
+    -   `\draw`, `\fill`, `\filldraw` — draw paths and shapes.
+    -   `\node` — place text nodes.
+    -   `\coordinate (name) at (x,y)` — define named positions.
+
+-   Coordinates: Cartesian `(x,y)` or polar `(angle:len)`. Relative
+    coordinates: `+(x,y)`, `++(x,y)`.
+
+-   Use `\begin{tikzpicture} ... \end{tikzpicture}` (or `\tikz{...}`)
+    and options such as `baseline`, `scale`, `xscale`, `yscale`.
+
+-   To draw functions:
+    `\draw [domain=<xmin>:<xmax>] plot (\x, {<function>});`.
+
+### Externalizing TikZ figures
+
+-   For standalone/externalized figures (faster builds), use
+    `pgfplots`/`tikz` external library and compile with shell escape
+    enabled:
+
+``` tex
+\usepackage{pgfplots}
+\usepgfplotslibrary{external}
+    ikzexternalize[shell escape=-enable-write18]
+```
+
+-   On some Windows/MiKTeX setups `pgfplots` works while `tikz` may not;
+    use `\tikzexternalize[prefix=tikzfigures/]` to write to a folder and
+    `\tikzsetnextfilename{file-name}` to name files. The external system
+    call can be customized to run `pdflatex` and convert PDFs to EPS if
+    needed.
+
+## R and tikzDevice
+
+-   R’s `tikzDevice` produces LaTeX-friendly plots. It requires LaTeX
+    packages `pgf` and `preview` installed; otherwise you may see
+    dimension-measuring errors.
+
+## Misc tips
+
+-   The order of preamble commands matters: later packages or options
+    can override earlier settings
+    (e.g. `\usepackage[margin=1.5in]{geometry}` will override
+    `fullpage`).
+-   Use `epstopdf` to convert images dynamically when compiling if you
+    include EPS graphics.
+-   `\stretch{<factor>}` is useful for distributing flexible space,
+    e.g. `x \hspace{\stretch{2}} x \hspace{\stretch{1}} x`.
+
+## References and further reading
+
+-   The TeX Stack Exchange (<https://tex.stackexchange.com>) is an
+    excellent resource for detailed questions.
+
+------------------------------------------------------------------------
+
+*Reformatting complete: content grouped, LaTeX commands preserved in
+code blocks where appropriate.*
