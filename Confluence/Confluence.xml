@@ -1,0 +1,56 @@
+<p>Confluence is a tool created by Alassian, which can be used to store content and can be integrated with other tools by the company, such as Jira.</p>
+<h2 id="benefits">Benefits<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">benefits</ac:parameter></ac:structured-macro></h2>
+<ul>
+<li><p>shared among teams</p></li>
+<li><p>version controlled</p></li>
+<li><p>centralied</p></li>
+</ul>
+<h2 id="deployment-types">Deployment types<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">deployment-types</ac:parameter></ac:structured-macro></h2>
+<table style="">
+<colgroup>
+<col style="width: 27%" />
+<col style="width: 27%" />
+<col style="width: 22%" />
+<col style="width: 22%" />
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: center;">Type</th>
+<th style="text-align: center;">Hosted by</th>
+<th style="text-align: left;">Note</th>
+<th style="text-align: left;">Example Url</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: center;">Cloud</td>
+<td style="text-align: center;">Atlassian</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">https://my-site.atlassian.net/wiki/spaces/spaceName</td>
+</tr>
+<tr class="even">
+<td style="text-align: center;">Server</td>
+<td style="text-align: center;">Organization self or 3rd party</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">https://my-jira-url.com/display/spaceName</td>
+</tr>
+<tr class="odd">
+<td style="text-align: center;">Data center</td>
+<td style="text-align: center;">Organization self or 3rd party</td>
+<td style="text-align: left;"></td>
+<td style="text-align: left;">https://my-jira-url.com/display/spaceName</td>
+</tr>
+</tbody>
+</table>
+<p>Different deployment types may render different web page formats and capabilities, for example, some apps only supported on Server and data center based deployments.</p>
+<h2 id="terms">Terms<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">terms</ac:parameter></ac:structured-macro></h2>
+<ul>
+<li><p>page: a document which is fixed or constantly updated, such as company policy</p></li>
+<li><p>blog: similar to page, but is time-based, generally not updated, such as news</p></li>
+<li><p>space: a collection of pages or blogs. There are personal space and global space, the former has content only for oneself such as goals and notes, which are private, while the latter is used to share content among teams or the whole company, such as human resource.</p></li>
+</ul>
+<h2 id="post-rmarkdowwn-to-confluence">Post Rmarkdowwn to Confluence<ac:structured-macro ac:name="anchor" ac:schema-version="1" ac:local-id="a6aa6f25-0bee-4a7f-929b-71fcb7eba592" ac:macro-id="d2cb5be1217ae6e086bc60005e9d27b7"><ac:parameter ac:name="">post-rmarkdowwn-to-confluence</ac:parameter></ac:structured-macro></h2>
+<ul>
+<li>Quarto: https://quarto.org/docs/publishing/confluence.html require version 1.3+</li>
+<li>conflr: https://github.com/line/conflr retire on Feb 2024</li>
+</ul>

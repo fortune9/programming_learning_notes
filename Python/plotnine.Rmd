@@ -1,0 +1,16 @@
+---
+title: "Python's ggplot2: plotnine"
+output: html_document
+---
+
+[plotnine](http://plotnine.readthedocs.io/en/stable/) is a package based
+on Grammar of Graphics in python, just like R's [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html).
+
+
+## Functions
+
+Function | Use
+--- | ---
+p9.save_as_pdf_pages() | save multiple plots into a file with each in a separate pdf page, use theme(figure_size=(6,5)) to set figure size
+ggplot.save() | save a ggplot object into a image file.
+

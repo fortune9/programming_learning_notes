@@ -1,0 +1,65 @@
+Jira usage
+================
+Zhenguo Zhang
+2026-01-11
+
+- [Application types](#application-types)
+- [Development types](#development-types)
+- [Terms](#terms)
+- [Leadership](#leadership)
+
+## Application types
+
+- Jira Core: main features like projects, issues, workflows, users, no
+  software development functionality.
+
+- Jira software: Jira core + development tool
+
+- Jira Service Desk: Jira core + support teams + confluence
+
+## Development types
+
+Different types have different interfaces and features, and have
+different compatible plugins.
+
+- Server: hosted by local company
+
+- Data center: hosted by third party servers such as AWS
+
+- Cloud: hosted by Alassian
+
+## Terms
+
+- issue: an individual item in Jira, like bug, task, story. Each issue
+  has a unique id assigned by the system.
+
+- project: a collection of jira issues, which has a long project name
+  and a short key
+
+- Board: a status-based view of issues, can be for different purposes,
+  such as campaign boards for deliverable. They can also be created such
+  as for just backlog issues.
+
+  - Scrum: work delivered at intervals called sprints, such as every two
+    weeks.
+  - Kanban: work delivered continuously
+
+- Dashboard: a statistics-based view of issues such as trends, counts,
+  etc. Customer dashboard can be created too to show issue statuses by
+  including different gadgets.
+
+- JQL: Jira Query Language, used to search issues and control boards. It
+  is similar to SQL, accessed via advanced search.
+
+- Attachments: one can attach any file type to an issue.
+
+- Gadget: dynamic Dashboard content such as charts, graphs, etc.
+
+- Jira REST API: used by programmer to operate on JIRA.
+
+## Leadership
+
+- Lead: responsible for the project decision, only one per project
+  (service desk project doesn’t have one)
+
+- Admins: can have multiple

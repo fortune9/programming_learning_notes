@@ -1,0 +1,10 @@
+---
+title: "GitHub Command Line"
+---
+
+## Authentication
+
+```
+cat "token" | gh auth login --with-token
+```
+

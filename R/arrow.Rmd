@@ -1,0 +1,257 @@
+---
+title: "Example code for using R arrow package to handle big dataset"
+author: "Zhenguo Zhang"
+date: "`r Sys.Date()`"
+# use github format
+output:
+  github_document:
+    toc: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings=FALSE, message=FALSE)
+workDir<-tempdir()
+```
+
+This document is based on the example at https://r4ds.hadley.nz/arrow.
+
+ Apache Arrow, a multi-language toolbox designed for efficient analysis and transport of large datasets. We’ll use Apache Arrow via the arrow package, which provides a dplyr backend allowing you to analyze larger-than-memory datasets using familiar dplyr syntax.
+
+```{r}
+library(arrow)
+library(tidyverse)
+```
+
+
+## Getting data
+
+### Data
+
+- Content: how many times each book was checked out each month from April 2005 to October 2022
+- url:  data.seattle.gov/Community/Checkouts-by-Title/tmmm-ytt6
+- size: 41,389,465 rows, 9GB
+- format: csv
+
+### Download data
+
+```{r}
+dir.create(file.path(workDir,"data"), showWarnings = FALSE)
+dataUrl<-"https://r4ds.s3.us-west-2.amazonaws.com/seattle-library-checkouts.csv"
+dataFile<-file.path(workDir,"data","seattle-library-checkouts.csv")
+curl::multi_download(dataUrl, destfiles = dataFile, resume=TRUE)
+```
+### Read data
+
+We will use `arrow::open_dataset()` to read the data, which will 
+
+- scan a few thousand rows to figure out the structure of the dataset
+- records what it’s found and stops
+- only read further rows as you specifically request them. 
+
+This would avoid reading all the data into memory
+
+```{r}
+seattle_csv <- open_dataset(
+  sources = file.path(workDir, "data/seattle-library-checkouts.csv"), 
+  col_types = schema(ISBN = string()),
+  format = "csv"
+)
+
+seattle_csv
+```
+
+As shown in the first line in the output, it tells you that seattle_csv is stored
+locally on-disk as a single CSV file.
+
+## Explore data
+
+Let's see what is actually in the dataset
+
+```{r}
+seattle_csv |> glimpse()
+```
+
+Now let's use dplyr verbs to explore the dataset and use `collect()` to force arrow to perform computation
+and return some data.
+
+```{r}
+seattle_csv |> 
+  group_by(CheckoutYear) |> 
+  summarise(Checkouts = sum(Checkouts)) |> 
+  arrange(CheckoutYear) |> 
+  collect()
+```
+
+
+## parquet format
+
+The Parquet format is a columnar storage file format that is optimized for use with big data processing frameworks. It is designed to be efficient in terms of both storage space and query performance.
+
+Like CSV, parquet is used for rectangular data, but instead of being a text format that you can read with any file editor, it’s a custom binary format designed specifically for the needs of big data. This means that:
+
+- Parquet files are usually smaller than the equivalent CSV file, using efficient encodings to keep file size down
+  supporting file compression
+
+- Parquet files have a rich type system and store data in a way that records the type along with the data.
+
+- Parquet files are “column-oriented”, much like R’s data frame, leading to better performance for data analysis
+
+- Parquet files are “chunked”, which makes it possible to work on different parts of the file at the same time
+
+### Partitioning
+
+When you have a very large dataset, it’s often useful to split it into multiple files based on the values of
+one or more columns (the variables you likely filter on), which will help you to access the data faster.
+
+Arrow suggests that you avoid files smaller than 20MB and larger than 2GB and avoid partitions that produce more than 10,000 files.
+ 
+Now let's rewrite the Seattle library data into different files based on `CheckoutYear`, because it is likely that
+some analyses will only want to look at a single year or a few years of data.
+
+```{r}
+seattle_csv |> 
+  write_dataset(
+    path = file.path(workDir, "data/seattle_parquet"),
+    format = "parquet",
+    partitioning = "CheckoutYear"
+  )
+# alternatively, one can use group_by(CheckoutYear) before write_dataset() to achieve the same effect by replacing the parameter partitioning
+```
+
+Let's check the files we just produced
+
+```{r}
+tibble(
+  files = list.files(
+    path = file.path(workDir, "data/seattle_parquet"), 
+    recursive = TRUE, 
+    full.names = TRUE
+  ),
+  size_MB = file.info(files)$size / 2^20
+)
+```
+
+The file names use a “self-describing” convention used by the [Apache Hive](https://hive.apache.org/) project.
+Hive-style partitions name folders with a “key=value” convention.
+
+Another important things is that the total size of the files (around 4GB) is much smaller than the original CSV file.
+
+### Read parquet data
+
+Now we have split the data into multiple parquet files, let's read them back, the syntax
+is similar to reading a single file, but the input is the folder containing all the parquet files.
+
+```{r}
+seattle_pq <- open_dataset(
+  sources = file.path(workDir, "data/seattle_parquet"), 
+  format = "parquet"
+)
+print(seattle_pq)
+```
+
+Now let's found out the number of books checked each month in the last 5 years:
+
+```{r}
+seattle_pq |> 
+  filter(CheckoutYear >= 2018, MaterialType == "BOOK") |> 
+  group_by(CheckoutYear, CheckoutMonth) |> 
+  summarise(TotalCheckouts = sum(Checkouts)) |> 
+  arrange(CheckoutYear, CheckoutMonth) ->
+  query
+# show what will happen when collect() is called
+print(query)
+```
+And now let's collect the results into R
+
+```{r}
+query |> collect()
+```
+
+Notes:
+
+- Writing dplyr code for arrow data is conceptually similar to dbplyr: the dplyr code is automatically transformed into a query that the Apache Arrow C++ library understands, which is then executed when you call collect().
+- Like dbplyr, arrow only understands some R expressions, so you may not be able to write exactly the same code you usually would. One can find all supported functions in `?acero`
+
+### Compare the performance between single csv file and multiple parquet files
+
+First, let's see how long does it take to calculate the nunber of checkouts in each month of 2021:
+
+```{r}
+seattle_csv |> 
+  filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
+  group_by(CheckoutMonth) |>
+  summarize(TotalCheckouts = sum(Checkouts)) |>
+  arrange(desc(CheckoutMonth)) |>
+  collect() |> 
+  system.time()
+```
+
+```{r}
+seattle_pq |> 
+  filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
+  group_by(CheckoutMonth) |>
+  summarize(TotalCheckouts = sum(Checkouts)) |>
+  arrange(desc(CheckoutMonth)) |>
+  collect() |> 
+  system.time()
+```
+
+As we can see, reading from multiple parquet files is much faster than reading from a single csv file,
+which was achieved for the following reasons:
+
+- arrow is smart enough to recognize that it only needs to read 1 of the 18 parquet files based on
+  the filering condition `CheckoutYear == 2021`, while for the csv file, it has to read the whole file
+
+- parquet is binary format, more efficient to read into memory.
+
+- parquet stores data column-wise, and it can only read the four needed columns here in the query:
+  `CheckoutYear`, `MaterialType`, `CheckoutMonth`, and `Checkouts`, while for the csv file,
+  it has to read all nine columns.
+
+
+### Challenge examples
+
+Now let's find out the most popular book of each year
+
+```{r}
+seattle_pq |> 
+  filter(MaterialType == "BOOK") |>
+  group_by(CheckoutYear, Title) |>
+  summarize(TotalCheckouts = sum(Checkouts)) |>
+  arrange(CheckoutYear, desc(TotalCheckouts)) |>
+  to_duckdb() |> # needs to_duckdb() here to use slice_max()
+  slice_max(TotalCheckouts) |>
+  collect() |>
+  arrange(CheckoutYear)
+```
+
+  
+## Using duckdb with arrow
+
+[DuckDB](https://duckdb.org/) is an in-process SQL OLAP database management system. It can query various
+data sources including parquet files using SQL syntax.  It’s very easy to turn an arrow dataset into a
+DuckDB database by calling arrow::to_duckdb(), and we can convert the Seattle parquet dataset into a DuckDB database,
+followed by operations, like:
+
+```{r}
+seattle_pq |> 
+  to_duckdb() |>
+  filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
+  group_by(CheckoutMonth) |>
+  summarize(TotalCheckouts = sum(Checkouts)) |>
+  arrange(desc(CheckoutMonth)) |>
+  collect() |> 
+  system.time()
+```
+The nice thing about `to_duckdb()` is that the conversion doesn't involve any memory copying,
+enabling seamless transitions from one system to another.
+
+
+
+## Resources
+
+- parquet format: https://parquet.apache.org/
+
+
+

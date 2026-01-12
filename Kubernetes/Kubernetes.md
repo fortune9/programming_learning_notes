@@ -1,0 +1,27 @@
+Kubernetes
+================
+January 11, 2026
+
+- [References](#references)
+
+Compared to Docker, Kubernetes, or K8s, can handle more containerized
+applications by scaling and coordinating them.
+
+While Docker is a container runtime, Kubernetes is a platform for
+running and managing containers from many container runtimes. Kubernetes
+supports numerous container runtimes including Docker, containerd,
+CRI-O, and any implementation of the Kubernetes CRI (Container Runtime
+Interface). A good metaphor is Kubernetes as an “operating system” and
+Docker containers are “apps” that you install on the “operating
+system”. 
+
+Kubernetes has several component tools, including kubeadm, kubelet, and
+kubectl, so one need install all of them. One can follow the procedures
+[here](https://phoenixnap.com/kb/install-kubernetes-on-ubuntu) to do it.
+Or one can also refer to the official document
+[here](https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/#install-using-native-package-management).
+
+## References
+
+- how to creake Kubernetes cluster on EKS:
+  <https://www.youtube.com/watch?v=p6xDCz00TxU>

@@ -1,0 +1,84 @@
+AWS ECR
+================
+
+- [Setup variables](#setup-variables)
+- [Connect to ECR](#connect-to-ecr)
+- [Create repository](#create-repository)
+- [Delete a repository](#delete-a-repository)
+- [Push docker image to the ECR](#push-docker-image-to-the-ecr)
+- [Create a docker registry at S3](#create-a-docker-registry-at-s3)
+- [References](#references)
+
+Amazon Elastic Container Service (ECS) is a highly scalable, high
+performance container management service that supports Docker containers
+and allows you to easily run applications on a managed cluster of Amazon
+EC2 instances.
+
+In this report, we demonstrate how to use ECR services.
+
+Note that some operations need authorization.
+
+## Setup variables
+
+``` bash
+awsAccountId="123456789012"
+awsRegion="us-east-1"
+ecrUrl="${awsAccountId}.dkr.ecr.${awsRegion}.amazonaws.com"
+repoName="REPO_NAME"
+repoUrl="${ecrUrl}/${repoName}"
+```
+
+## Connect to ECR
+
+To connect to ECR, one need login the registry first, the following
+command accomplish the purpose.
+
+``` bash
+aws --region "${awsRegion}" \
+    ecr get-login-password \
+    | docker login \
+        --password-stdin \
+        --username AWS \
+        "$ecrUrl"
+# Note that the '--username' is 'AWS'.
+# here you may want to use a credential helper to encrypt the password,
+# see https://github.com/awslabs/amazon-ecr-credential-helper
+```
+
+## Create repository
+
+``` bash
+aws ecr create-repository \
+    --repository-name "$repoName" \
+    --region "$awsRegion"
+```
+
+## Delete a repository
+
+``` bash
+aws ecr delete-repository \
+    --repository-name "$repoName" \
+    --region "$awsRegion" --force
+```
+
+## Push docker image to the ECR
+
+``` bash
+docker tag "$repoName" "$repoUrl" # assuming the built image has the repo name "$repoName"
+docker push "$repoUrl"
+```
+
+## Create a docker registry at S3
+
+One can create an S3 bucket and make it as a docker registry to hold
+images. To do so, please refer a blog
+[here](https://blog.platan.us/creating-a-simple-aws-s3-private-docker-registry-1be37a063c5)
+
+## References
+
+1.  AWS ECR help page: <https://aws.amazon.com/ecs/getting-started/>
+
+2.  AWS ECR cheet sheet: <https://steinbaugh.com/posts/aws-ecr.html>
+
+3.  AWS registry authorization:
+    <https://docs.aws.amazon.com/AmazonECR/latest/userguide/registry_auth.html>

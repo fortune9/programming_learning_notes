@@ -1,0 +1,51 @@
+---
+title: "Confluence usage"
+format: confluence-html
+author: "Zhenguo Zhang"
+date: "`r Sys.Date()`"
+---
+
+Confluence is a tool created by Alassian, which can be used to store content and
+can be integrated with other tools by the company, such as Jira.
+
+## Benefits
+
+- shared among teams
+
+- version controlled
+
+- centralied
+
+
+## Deployment types
+
+| Type | Hosted by | Note | Example Url |
+| :---: | :---: | :--- | :--- |
+| Cloud | Atlassian | | https://my-site.atlassian.net/wiki/spaces/spaceName |
+| Server | Organization self or 3rd party | | https://my-jira-url.com/display/spaceName |
+| Data center | Organization self or 3rd party | | https://my-jira-url.com/display/spaceName |
+
+Different deployment types may render different web page formats and capabilities,
+for example, some apps only supported on Server and data center based deployments.
+
+
+## Terms
+
+- page: a document which is fixed or constantly updated, such as company policy.
+  A page can have child pages.
+
+- blog: similar to page, but is time-based, generally not updated, such as news
+
+- space: a collection of pages or blogs. There are personal space and global space,
+	the former has content only for oneself such as goals and notes, which are private,
+	while the latter is used to share content among teams or the whole company,
+	such as human resource. Space determines who have access to the content.
+
+## Post Rmarkdowwn to Confluence
+
+- Quarto: 
+  * tutorial: https://quarto.org/docs/publishing/confluence.html
+  * format details: https://quarto.org/docs/blog/posts/2023-04-26-1.3-release/
+  * download: https://quarto.org/docs/download/ require version 1.3+
+- conflr: https://github.com/line/conflr retire on Feb 2024
+

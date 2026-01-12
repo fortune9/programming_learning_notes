@@ -1,0 +1,502 @@
+---
+title: "Notes on R flexdashboard"
+date: "`r format(Sys.time(), '%B %d, %Y')`"
+output:
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: scroll
+    navbar:
+      - {title: "Google", href: "http://google.com", align: right}
+      - {title: "Blog", href: "https://fortune9.netlify.app/", align: right}
+    social: ["twitter", "facebook"]
+    source_code: embed
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(shiny)
+```
+
+# Home
+
+## Column {data-width=50}
+
+
+### Introduction
+
+R [flexdashboard](https://pkgs.rstudio.com/flexdashboard/) is a super 
+powerful tool to create interactive html documents from Rmarkdown documents
+by combining the functionalities from other packages (like shiny, ggplot, etc).
+
+It uses Rmarkdown headings to make layouts, and can use
+[bslib](https://rstudio.github.io/bslib/) to customize the html styles.
+The key is to specify *flexdashboard::flex_dashboard* as the output for an Rmarkdown
+document. So one can check the options of the function [flexdashboard::flex_dashboard()]
+to see how to customize the output, such as *orientation*, *navbar*, etc.
+
+Another related cool package is [crosstalk](https://rstudio.github.io/crosstalk/),
+which can generate static interactive html pages without using shiny
+support, so it can be deployed anywhere.
+
+### Components
+
+flexdashboard can include the following components:
+
+* Interactive visualizations based on [htmlwidgets](https://pkgs.rstudio.com/flexdashboard/articles/using.html#html-widgets) (using Javascript).
+
+* R graphical output including base, lattice, and grid graphics.
+
+* Tabular data (with optional sorting, filtering, and paging).
+
+* Value boxes for highlighting important summary data.
+
+* Gauges for displaying values on a meter within a specified range.
+
+* Text annotations of various kinds.
+
+* Interactive component built on [shiny](https://pkgs.rstudio.com/flexdashboard/articles/shiny.html).
+
+## Column {data-width=50}
+
+### Layouts
+
+flexdashboard has the following features in setting up layouts:
+
+* flexible options to set the arrangements of items in a page [link](https://pkgs.rstudio.com/flexdashboard/articles/using.html#layout).
+
+* organize content into multiple pages [link](https://pkgs.rstudio.com/flexdashboard/articles/using.html#multiple-pages).
+
+### Reference
+
+1. flexdashboard github page: https://github.com/rstudio/flexdashboard
+2. crosstalk example: https://rstudio.github.io/crosstalk/
+
+
+# Main {data-navmenu="Usage"}
+
+On this page, I make notes on how to flexdashboard.
+
+## Column {data-width=100 .tabset}
+
+### Layouts
+
+#### Orientation
+
+Components can be arranged in rows and columns. The default uses
+columns as the main orientation, and to use rows, set the option
+*orientation: rows* in output specification section and use the keyword
+*Row* when start a new row.
+
+The 2nd level markdown headers (starting with '##') define columns
+or rows, and one can also use dashed lines to indicate the levels.
+For example, the following code shows two ways of defining two columns:
+
+```
+## Column
+
+This is first column.
+
+Column
+---------------------------------------
+
+This is the second column.
+```
+
+For multiple pages, to change orientation for a specific page, one
+can add attribute {data-orientation=rows} or {data-orientation=columns}.
+
+#### Scroll page
+
+In default, the charts in a column (or row) are extended to fill the height
+of the browser; this however not work well when there are many charts. So
+one can change the output option to `vertical_layout: scroll` to allow charts
+to show their natural heights and scrolling page when necessary.
+
+#### Sizing
+
+- width: the width of charts are determined by the width of browser, and
+	also the column layouts: if one column, then the chart occupies the whole width,
+	if multiple columns, the browser width is divided among columns according to the
+	attributes {data-width}. 
+
+- height: if the option 'vertical_layout' is set to 'fill' (default), the height
+	of charts is determined by the height of browser by dividing the total height
+	into different stacked charts. If the option 'vertical_layout' is set to 'scroll',
+	the height of each chart is determined by `knitr::fig.height` option, default is
+	5 inch (480 pixels).
+
+- size attributes: one can use {data-width=xxx} and {data-height=xxx} to specify the
+	relative width and height of each column or row.
+
+- padding attributes: in default, 8-pixel padding is added around each chart, to suppress
+	it, one can use the attribute {.no-padding} or use {data-padding=xx} to change it.
+
+Note that all these sizing specifications are relative, because the dashboard layout
+is done using flexbox engine, which alters items size to fit spaces of any display
+device.
+
+
+#### Tabsets
+	
+To put the charts into tabsets in a column or row, one can add the attribut
+*.tabset* to the section heading, as one example below:
+
+```
+## Column {.tabset}
+
+### Tab 1
+
+This is tabset 1
+
+### Tab 2
+
+This is tabset 2
+
+## Column
+
+### Column 2
+
+This column has no tabsets.
+
+```
+
+#### Pages
+
+The first level heading provides pages. The example below
+shows how to create 3 pages:
+
+```
+# Page 1 {data-navmenu="Menu A"}
+
+# Page 2 {data-navmenu="Menu A"}
+
+# Page 3
+```
+
+Here are some important attributes:
+
+- page menus: these pages will all show up at the top navigation bar. If there are many
+	pages, one can organize these pages into menus. To do so, one can use the 
+	page attribute {data-navmenu="Menu title"} to group pages.
+
+- page links: to link one page, one can use markdown link syntax such as `[Home]` to link
+	certain page [Home]. However, if one wants to customize the text of the link, it can
+	use the format like `[Customized link](#home)` to [Customized link](#home).
+
+- hiding pages: to hide a page from navigation bar, one can use the '{.hidden}' attribute, useful
+	when one wants to refer to the page through a link from other pages.
+
+- page icon: to add an icon to a page, one can use the attribute like '{data-icon="fa-list"}'.
+
+
+#### Sidebars
+
+There are two types of side bars, a page side bar and a global side bar. The former
+is present at a specific page and the latter is present on all pages. To get them,
+one can add attribute '{.sidebar}' to a second-level heading and to a first-level heading
+respectively, just like the code below:
+
+```
+# global-sidebar {.sidebar}
+
+This is global sidebar, appearing on all pages.
+
+
+# Page 1
+
+## page-sidebar {.sidebar}
+
+This sidebar appears only on this page
+
+## Column 1
+
+### Chart A
+
+
+## Column 2
+
+### Chart B
+```
+
+#### Storyboards
+
+Instead of showing the charts in a page, one can convert them into sequential
+frames (like powerpoint slides), which is called storyboard (an example can be
+found [here](https://beta.rstudioconnect.com/jjallaire/htmlwidgets-showcase-storyboard/htmlwidgets-showcase-storyboard.html)).
+
+There are two ways to do so:
+
+- gloabl option *storyboard*: one can set *storyboard: true* to output, so that all
+	pages will be converted into storyboards.
+
+- page attribute *.storyboard*: to make only one page to storyboard, one can add attribute
+	'{.storyboard}' to a page.
+
+
+### Components
+
+#### R graphics
+
+One can use any R graphics generated from R packages, such as base, 
+lattice, grid, etc, in the flexdashboard. 
+
+For dynamic dashboard powered with shiny, plots will automatically
+fit to their dashboard containers if they are wrapped into a call
+with *renderPlot*.
+
+But for static dashboard, plots are scaled to fit their containers
+(keeping aspect ratios, so no distortion), but there will be some gaps.
+To make plots fit the container well, one should set figure height
+and width to match target containers as much as possible.
+
+#### htmlwidgets
+
+[htmlwidgets](https://www.htmlwidgets.org/) are R bindings to Javascript data
+visualization libraries. Available htmlwidgets include:
+
+1. [Leaflet](https://rstudio.github.io/leaflet/): a library for creating dynamic maps.
+
+2. [dygraphs](https://rstudio.github.io/dygraphs): a library for charting time-series data.
+
+3. [plotly](https://plot.ly/r/): a webtool to create interative plots, the function *ggplotly* makes conversion from ggplot2 to plotly very easy.
+
+4. [rbokeh](https://hafen.github.io/rbokeh): R interface to Bokeh, a framework to create web-based plots.
+
+5. [Highcharter](https://jkunst.com/highcharter/): R interface to Highcharts JavaScript graphics library.
+
+6. [visNetwork](https://dataknowledge.github.io/visNetwork): interface to network visualization library vis.js.
+
+7. More htmlwidgets can be found at https://gallery.htmlwidgets.org/.
+
+One can include htmlwidgets as normal R graphics in Rmarkdown document.
+One disadvantage of htmlwidgets is that for big dataset, it will be very slow because
+it embeds all data in the host web page.
+
+#### Tables
+
+Tables can be included in two way, a simple table or a table with
+filtering, sorting, and pagination functions. The latter is powered by
+[DataTable](https://datatables.net/) JavaScript library.
+
+To add simple table, one can use [knitr::kable()]. To add datatable,
+one can use [DT::datatable()].
+
+For shiny dynamic table, one should use [shiny::renderTable()] and
+[DT::renderDataTable()] for the above cases, respectively.
+
+#### Valueboxes
+
+Value boxes display simple values with a title and optional icon.
+It can be created with the function [flexdashboard::valueBox()].
+Below is one example:
+
+```
+valueBox(100, caption="Great", icon="fa-thumbs-up")
+```
+
+One can also change color and icons, and add href links. See the function's help page.
+For icons, one can use the icons from the following three sources:
+[Font Awesome](https://fortawesome.github.io/Font-Awesome/icons/), [Ionicons](https://ionicons.com/),
+and [Boostrap Glyphicons](https://getbootstrap.com/components/#glyphicons).
+
+To use shiny support, the valuebox should be wrapped into [flexdashboard::renderValueBox()].
+
+#### Gauges
+
+Similar to valuebox, one can also use gauges to display a value, which displays
+a meter within a specified range with different colors (depending on the value).
+This is achieved via the function [flexdashboard::gauge()].
+
+One example is as follows:
+
+```
+flexdashboard::gauge(80, min = 0, max = 50, gaugeSectors(
+  success = c(41, 50), warning = c(21, 40), danger = c(0, 20)
+))
+```
+
+Similarly, to render the gauge in a shiny dashboard, one need wrap this into
+[flexdashboard::renderGauge()] function.
+
+#### Navigation bar
+
+In default, the navigation bar is shown at the top, and includes the title,
+author, and date. When a dashboard has multiple pages, links to pages are also shown
+next to date. One can also include social links and link to source code.
+
+- social links: one can provide option 'social' to the output head section to include
+	the following social media: twitter, linkedin, facebook, google-plus, printerest.
+	Each of these will generate a shareable link to the flexdashboard page.
+
+- source code: this can be an URL to the page of the source code or the word 'embed'
+	to embed the source code into the dashboard.
+
+#### Text annotations
+
+- Text section: to include text in dashboard, one can either include them before the dashboard section
+	which will show at the top of the page, or include components like text, images, or
+	any content instead of a chart.
+
+- Title and notes: for each chart section, the title is the text after '###'. To exclude the
+	title, one can add the attribute '{.no-title}'. Also, one can add notes to a section by
+	prefixing text with '>'.
+
+
+### Shiny
+
+**Important**: when rendering an Rmarkdown document with shiny elements,
+the corresponding command line is 'rmarkdown::run("mydoc.Rmd")', instead
+of 'rmarkdown::render("mydoc.Rmd")'. Because of this, the function 'rmarkdown::run()'
+may scan all '*.Rmd' documents in the folder where the main Rmarkdown file stays.
+If any .Rmd file has wrong YAML format (such as extra spaces), the function will
+fail. Therefore, it may be safer to put the main document in a separate folder
+when rendering it. 
+
+By adding Shiny to a dashboard, one can make the components in
+a dashboard dynamically change according to users' inputs, i.e.,
+interactive dashboard. This kind of dashboard need be deployed
+to an R server such as https://www.shinyapps.io/ to make it shareable.
+
+One can find more about interactive Rmarkdown document at
+[here](https://shiny.rstudio.com/articles/interactive-docs.html).
+
+Note that [shinydashboard](https://rstudio.github.io/shinydashboard/)
+package provides another way to create interactive dashboard.
+
+To add shiny to flexdashboard, one need (1) add option 'runtime: shiny'
+to YAML header, (2) add inputs and outputs to appropriate components,
+and (3) output charts using 'render*' functions.
+
+In dashboard, one should do all expensive operations in a global
+R chunk so that the operation is only run once and all other components can
+use the results. Activities such as loading data are recommended
+to put into this section, as an example below:
+
+```{r global, include=FALSE} ''
+# load data in 'global' chunk so it can be shared by all users of the dashboard
+data <- read.csv("data.csv")
+```
+
+#### Functions for shiny inputs
+
+R Function | Input Type
+--- | :---
+selectInput |	A box with choices to select from
+sliderInput	| A slider bar
+radioButtons |	A set of radio buttons
+textInput |	A field to enter text
+numericInput| A field to enter numbers
+checkboxInput | A single check box
+dateInput |	A calendar to aid date selection
+dateRangeInput |	A pair of calendars for selecting a date range
+fileInput |	A file upload control wizard
+
+#### Functions for shiny outputs
+
+R Function | Output Type
+--- | :---
+renderPlot	| R graphics output
+renderPrint	| R printed output
+renderTable	| Data frame, matrix, other table like structures
+renderText	| Character vectors
+
+#### Layouts
+
+When laying out shiny components, there are two strategies: put inputs
+and ouputs in separate flexdashboard panels (such as inputs in sidebar
+and outputs in general charts), and put both inputs and outputs in the
+same panel. For the latter, to make it fill the panel container as other
+components do, one need use shiny's [fillRow](https://shiny.rstudio.com/reference/shiny/latest/fillRow.html)
+and [fillCol](https://shiny.rstudio.com/reference/shiny/latest/fillRow.html)
+functions.
+
+#### Shiny modules
+
+To make the code cleaner, one can put shiny code into
+[shiny modules](https://shiny.rstudio.com/articles/modules.html),
+which includes defined functions and can be called in
+other R code. When including the shiny module in dashboard,
+it is inserted inline, so inheriting container's CSS.
+
+#### Inline shinyApp
+
+One can also use  to embed a shiny app in
+dashboard. In contrast shiny modules, this inline shiny app
+is included in a page using $\lt$iframe$\gt$.
+
+
+### Themes
+
+There are many themes available to modify the appearances of flexdashboard.
+The choice of themes can be found at https://bootswatch.com/. To change a
+theme, one can change the output option 'theme', like below:
+
+```
+title: "Testing theme"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: bootstrap
+```
+
+One can also customize elements using css styles, which can be specified
+using an option 'css: file.css' in output. One can find the css for different
+themes [here](https://github.com/rstudio/flexdashboard/tree/feature/logo-and-favicon/inst/rmarkdown/templates/flex_dashboard/resources).
+
+
+
+
+### Syntax summary
+
+Syntax | Example | Description
+--- | --- | :---
+.tabset | ## Column {data-width=50 .tabsets} | make the components under this column into tabs.
+.tabset-fade | ## Column {data-width=50 .tabsets .tabset-fade} | add fade in/out effect when switching tabs.
+vertical_layout | vertical_layout: scroll | make the page components scollable; change to 'fill' to make components fill page height.
+
+
+# Examples {data-navmenu="Usage"}
+
+## Column {.sidebar}
+
+This is the control area for displays on the right.
+
+```{r}
+sliderInput("boxValue", label="Score for valueBox", min=0, max=100, value=80, step=1)
+```
+
+## Column {data-width=50}
+
+### Valuebox
+
+```{r, echo=F}
+renderValueBox({
+x<-input$boxValue
+if(x > 80) {
+	iconSet<-c("Excellent","fa-thumbs-up")
+	color<-"green"
+} else if(x < 60) {
+	iconSet<-c("Need improvement", "fa-thumbs-down")
+	color<-"red"
+} else {
+	iconSet<-c("Good", "fa-hand-rock")
+	color<-"orange"
+}
+valueBox(x, caption=iconSet[1], icon=iconSet[2], color=color)
+})
+```
+
+### Gauge
+
+```{r, echo=F}
+flexdashboard::gauge(80, min = 0, max = 100, gaugeSectors(
+  success = c(80, 100), warning = c(60, 80), danger = c(0, 60)
+))
+```
+
+## Column {data-width=50}
+
+
+
+# FAQs {data-navmenu="Usage"}
+

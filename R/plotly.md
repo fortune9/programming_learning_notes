@@ -1,0 +1,16 @@
+plotly learning notes
+================
+Zhenguo Zhang
+January 11, 2026
+
+Any widget made from any htmlwidgets package (e.g., plotly, leaflet, DT,
+etc) can be saved as a standalone HTML file via the
+htmlwidgets::saveWidget() function.
+
+To load the saved htmlwidgets back to an html file, can one use the
+*iframe* tag. For example,
+
+    <iframe, src="widget.html" width="80%" height="80%"> </iframe>
+
+Alternatively, one can save an htmlwidget via \[saveRDS()\] and then
+load it back to an Rmarkdown document via \[readRDS()\].

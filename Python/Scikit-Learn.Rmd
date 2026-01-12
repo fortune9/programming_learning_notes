@@ -1,0 +1,14 @@
+---
+title: "Notes on Scikit-Learn"
+---
+
+## Classes
+
+Class | Description
+--- | :---
+sklearn.impute.simpleImputer | simple imputing methods
+sklearn.compose.ColumnTransformer | apply transformers to columns of arrays or pandas.DataFrame
+sklearn.preprocessing.OneHotEncoder | encode category variables into multiple columns using 0 and 1
+sklearn.preprocessing.LabelEncoder  | encode category variables to values between 0 and nclass-1, used for target variables
+
+

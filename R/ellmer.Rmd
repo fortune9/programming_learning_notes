@@ -1,0 +1,417 @@
+---
+title: "Example code for making AI agents"
+author: "Zhenguo Zhang"
+date: "`r Sys.Date()`"
+# use github format
+output:
+  github_document:
+    toc: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings=FALSE, message=FALSE)
+workDir<-tempdir()
+```
+
+## Setup
+
+- To setup ellmer: https://www.seascapemodels.org/AI-assistants-for-scientific-coding/03-set-up.html#sec-ellmer
+- ollama
+  + installation: https://github.com/ollama/ollama
+  + to download a model: `ollama pull <model_name>`, e.g. `ollama pull llama2`
+
+## ellmer package
+
+The ellmer package provides a framework for building AI agents in R. It allows you to create agents
+that can interact with users, process natural language inputs, and generate code or perform tasks
+based on those inputs.
+
+It provides interfaces to various model providers, including openrouter, huggingface, google
+gemini, local ollama, deepseek, claude, and more. To interact with them, one just need to call
+function like `chat_ollama()`, `chat_openrouter()`, `chat_huggingface()`, etc.
+
+Let's try an example using ollama:
+
+```{r}
+library(ellmer)
+# create a chat completion using ollama
+chat_agent <- chat_ollama(
+  model = "deepseek-r1:1.5b" # specify the model name
+)
+# send a message to the agent
+response <- chat_agent$chat("Write a function in R to calculate the factorial of a number.")
+# print the response
+print(response)
+```
+
+
+## Models on openrouter
+
+There are many free models available on openrouter. You can explore them at
+https://openrouter.ai/models?q=free. Some important free models include (as of Dec 22,2025):
+
+- xiaomi/mimo-v2-flash:free
+- nvidia/nemotron-3-nano-30b-a3b:free
+- nex-agi/deepseek-v3.1-nex-n1:free
+- deepseek/deepseek-r1-0528:free
+- mistralai/devstral-2512:free
+- alibaba/tongyi-deepresearch-30b-a3b:free
+- qwen/qwen3-coder:free
+- moonshotai/kimi-k2:free
+- google/gemma-3n-e2b-it:free
+- google/gemini-2.0-flash-exp:free
+
+Let's try a free Xiaomi model:
+
+```{r}
+library(ellmer)
+# create a chat completion using openrouter
+chat_agent <- chat_openrouter(
+  model = "xiaomi/mimo-v2-flash:free", # specify the model name
+)
+# send a message to the agent
+response <- chat_agent$chat("How good is Xiaomi model")
+# print the response
+print(response)
+```
+
+## Structured output
+
+When using an LLM to extract data from text or images, you can ask the chatbot to format it in JSON or any other format that you like. This works well most of the time, but there’s no guarantee that you’ll get the exact format you want.
+
+Based on a new LLM feature *structured data*, one can get expected output structure by supplying
+type specifications in the output data.
+ellmer supports this and the following is an example:
+
+```{r}
+# create an output structure specification
+output_spec <- type_object(
+  name = type_string("The person's full name"),
+  age = type_integer("The person's age in years"),
+  is_active = type_boolean("Whether the person is active or not")
+)
+```
+
+Here are the full list of all the types:
+
+- type_boolean(), type_integer(), type_number(), and type_string() each represent scalars. These are equivalent to length-1 logical, integer, double, and character vectors (respectively).
+
+- type_enum() is equivalent to a length-1 factor; it is a string that can only take the specified values.
+
+- type_array() is equivalent to a vector in R. You can use it to represent an atomic vector: e.g. type_array(type_boolean()) is equivalent to a logical vector and type_array(type_string()) is equivalent to a character vector). You can also use it to represent a list of more complicated types where every element is the same type (R has no base equivalent to this), e.g. type_array(type_array(type_string())) represents a list of character vectors.
+
+- type_object() is equivalent to a named list in R, but where every element must have the specified type. For example, type_object(a = type_string(), b = type_array(type_integer())) is equivalent to a list with an element called a that is a string and an element called b that is an integer vector.
+
+- type_ignore() is used in tool calling to indicate that an argument should not be provided by the LLM. This is useful when the R function has a default value for the argument and you don't want the LLM to supply it.
+
+- type_from_schema() allows you to specify the full schema that you want to get back from the LLM as a JSON schema. This is useful if you have a pre-defined schema that you want to use directly without manually creating the type using the ⁠type_*()⁠ functions. You can point to a file with the path argument or provide a JSON string with text. The schema must be a valid JSON schema object.
+
+Under the hood, these type specifications ensures that the LLM returns correctly structured JSON. 
+But ellmer goes one step further and converts the JSON to the closest R analog. This means:
+
+- Scalars -> length-1 vectors.
+- Arrays of scalars -> vectors.
+- Arrays of arrays -> unnamed lists.
+- Objects -> named lists.
+- Arrays of objects -> data frames.
+
+One can turn off the R type conversion by setting the argument `convert = FALSE` in the function
+`chat_structured()` or `parallel_chat_structured()`.
+
+With this specification, we can ask the model to return structured data.
+
+To get structured output, one will call `chat_structured()` method on the chat agent,
+instead of the usual `chat()` method.
+
+And now let's extract structured output from a model to demonstrate the capbility:
+
+```{r}
+# create a chat completion using ollama with structured output
+chat_agent <- chat_ollama(
+  model = "deepseek-r1:1.5b",
+)
+# Let's ask a question about a person
+response <- chat_agent$chat(
+  "Provide the name, age, and active status of Albert Einstein in a structured format.",
+)
+# parse the response with the output specification
+parsed_response <- chat_agent$chat_structured(type=output_spec)
+print(parsed_response)
+```
+
+In addition to extracting structured data from previous response, one can also
+feed the function with a new text to extract structured data from it:
+
+```{r}
+# create a chat completion using ollama with structured output
+chat_agent <- chat_ollama(
+  model = "deepseek-r1:1.5b",
+)
+# Let's provide a text about a person
+text <- "Marie Curie was born in 1867 and was a pioneering physicist and chemist. She is best known for her research on radioactivity. Marie Curie was an active scientist throughout her life."
+# parse the text with the output specification
+parsed_response <- chat_agent$chat_structured(
+  text,
+  type = output_spec
+)
+print(parsed_response)
+```
+
+If you need to extract data from multiple prompts/texts, you can use the function
+`parallel_chat_structured()` to do that in parallel:
+
+```{r}
+# let's create a list of texts about different people
+texts <- list(
+  "Isaac Newton was born in 1643 and is famous for his laws of motion and universal gravitation. He was an active scientist throughout his life.",
+  "Ada Lovelace was born in 1815 and is considered the first computer programmer. She was an active mathematician during her lifetime."
+)
+# extract structured data from multiple texts in parallel
+parsed_responses <- parallel_chat_structured(
+  chat_agent, # note this agent has to be passed in as a argument
+  texts,
+  type = output_spec,
+  convert = TRUE # set to FALSE to get raw output without conversion to an R object
+)
+print(parsed_responses)
+```
+
+
+
+
+## Calling tools
+
+ellmer allows you to define R functions as tools that the AI agent can call to perform specific tasks.
+Here's an example of defining a simple tool and allowing the agent to use it:
+
+```{r}
+# define a simple tool function
+add_numbers <- function(a, b) {
+  a<-as.numeric(a)
+  b<-as.numeric(b)
+  return(a + b)
+}
+# create a chat completion using ollama with tool calling
+chat_agent <- chat_ollama(
+  model = "llama3.2:3b", # deepseek doesn't support tools
+)
+# register the tool
+chat_agent$register_tool(
+  tool(
+  add_numbers,
+  description = "Adds two numbers together.",
+  arguments = list(
+    a = type_string("The first number to add."),
+    b = type_string("The second number to add.")
+  )
+  )
+)
+# ask the agent to use the tool
+response <- chat_agent$chat("What is the sum of 5 and 10? Use the add tool to calculate it.")
+# print the response
+print(response)
+```
+
+>[!IMPORTANT] **Note** that the LLM model itself doesn't call the model directly, instead it requests the tool call for the user
+and then combine the returned results to generate the final response.
+The value that the chat model brings is: NOT in helping with execution, but with knowing when it makes sense to call a tool, what values to pass as arguments, and how to use the results in formulating its response.
+
+One can directly print the chat agent to see when it called the tool:
+
+```{r}
+print(chat_agent)
+```
+
+As you can see, the LLM agent request tool call, and it was the user who actually
+called the tool and provided the result.
+
+> [!TIP] ellmer allow tools to return image or PDF content that can be returned with the tool result, if the LLM or API supports vision capabilities. For that, one can use
+the functions `content_image_file()` and `content_pdf_file()` to wrap the file path. One example
+is like this:
+
+```r
+screenshot_website <- tool(
+  function(url) {
+    tmpf <- withr::local_tempfile(fileext = ".png")
+    webshot2::webshot(url, file = tmpf)
+    content_image_file(tmpf)
+  },
+  name = "screenshot_website",
+  description = "Take a screenshot of a website.",
+  arguments = list(
+    url = type_string("The URL of the website")
+  )
+)
+```
+
+> [!TIP] one can use `create_tool_def()` to create tool definitions from existing R functions more easily.
+
+For example, to generate a tool definition for `rnorm()` function, one can do:
+
+```{r}
+create_tool_def(rnorm)
+```
+
+This will generate a tool definition that can be registered with the chat agent.
+
+## Clone a chat
+
+Chat objects are R6 objects, meaning they are mutable. Unlike most R objects which are immutable,
+a new copy is created when it is modified, R6 objects
+will not be copied when modified.
+
+Here is an example:
+
+```{r}
+chat <- chat_ollama("Be terse", model = "llama3.2:3b")
+
+capital <- function(chat, country) {
+  chat$chat(interpolate("What's the capital of {{country}}"))
+}
+capital(chat, "New Zealand")
+#> Wellington
+capital(chat, "France")
+#> Paris
+```
+
+And now let's see the content of the object `chat` by printing it
+
+```{r}
+print(chat)
+```
+
+As you can see, it contains the full chat history. This makes sense most of the time.  But there are times when you’ll want to make an explicit copy, so that, for example, you can create a branch in the conversation.
+
+
+To clone a chat object, you can use the `clone()` method. Here’s an example:
+
+```{r}
+chat <- chat_ollama("Be terse", model = "llama3.2:3b")
+
+capital <- function(chat, country) {
+  chat <- chat$clone()
+  chat$chat(interpolate("What's the capital of {{country}}"))
+}
+capital(chat, "New Zealand")
+capital(chat, "France")
+
+chat
+```
+As you can see, the original `chat` object remains unchanged after calling the `capital()` function, because we cloned it inside the function.
+
+
+## Streaming vs batch results
+
+When calling `chat$chat()` directly in the console, the results are displayed progressively
+as the LLM streams them to ellmer.
+When calling `chat$chat()` inside a function, the results are delivered all at once. The
+difference is due to default setting on the argument `echo` when creating the chat
+object. To control the behavior yourself, one need to set the argument `echo` explicitly:
+
+- none: no intermediate results are printed
+- output: see what received from the LLM progressively
+- all: see what sent and received
+
+
+### Streaming results
+
+The `chat()` method does not return any results until the entire response is received;
+note that it does print streaming results to R console, but doesn't return until the
+response is complete.
+
+To get the results when it arrives, one can use the `stream()` method, useful when one wants to
+send real-time results to other consoles, such as Shiny apps or wants to process the results
+before sending to the user. Here is an example:
+
+```{r}
+stream <- chat$stream("What are some common uses of R?")
+coro::loop(for (chunk in stream) {
+  cat(toupper(chunk))
+})
+```
+
+### Async usage
+
+This is useful when one wants to run multiple concurent sessions without blocking
+each other: normally when one calls `chat$chat()`, it will block the R session until
+the response is received. But with async usage, one can start multiple chat sessions
+without blocking each other.
+
+To use async chat, call `chat_async()/stream_async()` instead of `chat()/stream()`.
+The async versions return a promise instead of an actual response.
+
+Here is an example:
+
+```{r}
+library(promises)
+chat <- chat_ollama("Be terse", model = "llama3.2:3b", echo = "none")
+prom1 <- chat$chat_async("What's the capital of New Zealand?")
+prom2 <- chat$clone()$chat_async("What's the capital of France?")
+prom1 %...>% print()
+prom2 %...>% print()
+```
+
+### Shiny app
+
+One can integrate ellmer chat objects into Shiny apps to provide interactive AI capabilities.
+To do so, the recommended way is to use the [shinychat](https://posit-dev.github.io/shinychat/) package,
+which provides functions like `chat_mod_ui()` and `chat_mod_server()` to connect a chat object
+to `shinychat::chat_ui()`, in a bon-blocking asynchronous way automatically.
+
+Here is an example of a Shiny app using ellmer and shinychat:
+
+```{r, eval=FALSE}
+library(shiny)
+library(shinychat)
+
+ui <- bslib::page_fillable(
+  chat_mod_ui("chat")
+)
+
+server <- function(input, output, session) {
+  chat <- ellmer::chat_openai(
+    system_prompt = "You're a trickster who answers in riddles",
+    model = "gpt-4.1-nano"
+  )
+
+  chat_mod_server("chat", chat)
+}
+
+shinyApp(ui, server)
+```
+
+One can find more info on asynchronous streaming at https://ellmer.tidyverse.org/articles/streaming-async.html
+
+
+## Tips
+
+- To get more details of how a chat object works, one can call the function `get_turns()`
+  which will return the user input and response in a list. And then to examine a certain
+  response, one can call `str()` on the response object or use `@json` to see more details.
+
+- Best practices for prompting engineering:
+  + Be specific about what you want the model to do.
+  + Provide context or examples if necessary.
+  + Use clear and concise language.
+  + Experiment with different prompts to see what works best.
+  + For projects, separate promts into different files based on their functionality,
+    such as prompt-extract-meta.md, prompt-summarize-txt.md, etc. You can put these
+    into a root folder or into `inst/promots` and push them to git repo so that you
+    can check how they evolve and roll back when needed.
+  + Build a set of challenging examples that can be used regularly to recheck new
+    versions of prompts.
+  + one can find some examples at https://ellmer.tidyverse.org/articles/prompt-design.html
+  
+
+## References
+
+- make your own AI agent: https://www.seascapemodels.org/posts/2025-11-10-make-an-ai-agent-in-r/
+
+- structured output from ellmer: https://ellmer.tidyverse.org/articles/structured-data.html
+
+- tool calling in ellmer: https://ellmer.tidyverse.org/articles/tool-calling.html
+
+- shinychat: add LLM interfaces to shiny apps, https://posit-dev.github.io/shinychat/
+
+
