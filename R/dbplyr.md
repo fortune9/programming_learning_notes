@@ -1,7 +1,7 @@
 Example code for using dbplyr arrow package to handle big dataset
 ================
 Zhenguo Zhang
-2026-01-11
+2026-01-20
 
 - [Play the dbduck database](#play-the-dbduck-database)
   - [Create a database](#create-a-database)
@@ -12,6 +12,8 @@ Zhenguo Zhang
   - [Exectute sql queries](#exectute-sql-queries)
 - [Access Arrow object](#access-arrow-object)
   - [Indexes or Keys](#indexes-or-keys)
+  - [Merge into statements](#merge-into-statements)
+- [NA values](#na-values)
 - [List of useful functions from
   dbplyr](#list-of-useful-functions-from-dbplyr)
 - [List of useful functions from
@@ -92,7 +94,7 @@ head(mpg_db)
 ```
 
     ## # Source:   SQL [?? x 11]
-    ## # Database: DuckDB 1.4.3 [zhenguo@Linux 6.8.0-90-generic:R 4.5.2//tmp/RtmpNsXrPt/duckdb]
+    ## # Database: DuckDB 1.4.3 [zhenguo@Linux 6.8.0-90-generic:R 4.5.2//tmp/RtmpZmYk65/duckdb]
     ##   manufacturer model displ  year   cyl trans      drv     cty   hwy fl    class 
     ##   <chr>        <chr> <dbl> <int> <int> <chr>      <chr> <int> <int> <chr> <chr> 
     ## 1 audi         a4      1.8  1999     4 auto(l5)   f        18    29 p     compa…
@@ -246,11 +248,83 @@ The operations such as `rows_insert()`, `rows_update()`, and
 primary/unique keys to be defined, otherwise they will not check for
 duplicates, even though the argument `by` is supplied. If the Keys
 exists, then the argument `by` is still needed, which should be the same
-as or a subset of the Keys.
+as or a subset of the Keys. For `rows_upsert`, the duckdb database
+backend for `in_place=TRUE` is not supported yet. A more efficient way
+for this operation is to use dbduck’s `merge into` statement directly
+via `dbExecute()`.
 
 One can’t use `ALTER TABLE` statement to add primary/unique keys after
 the table is created in duckdb. The keys must be defined when the table
 is created.
+
+### Merge into statements
+
+One can use duckdb’s `merge into` statement directly via `dbExecute()`
+to perform upsert operations efficiently without needing indexes/primary
+keys in the target table (required by dbplyr’s `rows_upsert()`
+function). Here is an example:
+
+``` r
+sql <- "
+  MERGE INTO target_table AS target
+  USING source_table AS source
+  ON target.id = source.id
+  WHEN MATCHED THEN
+    UPDATE SET value = source.value -- no qualifier for target.value, otherwise error occurs
+  WHEN NOT MATCHED THEN
+    INSERT (id, value) VALUES (source.id, source.value);
+"
+dbExecute(con, sql)
+```
+
+There are some limitations when using `merge into` statement in duckdb:
+
+- The column order in the source table must match that in the target
+  table when inserting new rows; this assumption is not used in matching
+  where names are used in the join. Explicitly specifying the column
+  names in the source table or query does not resolve the issue. To
+  solve the problem, one needs explicitly specify the column order via
+  values() in the insert statement, so that the inserted values match
+  the target column order; and use set statement in update each column
+  with the specified columns from the source table (see example below).
+  One simple solution might be use select to make the correct order from
+  the source table, and then no need to worry the order afterwards. So
+  the columns in the source table or query must be in the same order as
+  those in the target table.
+
+  ``` r
+  # assume target_table has columns (value, id)
+  sql <- "
+    MERGE INTO target_table AS target
+      USING (SELECT id, value FROM source_table ORDER BY id) AS source
+      ON target.id = source.id
+      WHEN MATCHED THEN
+        UPDATE SET value = source.value -- without this, id -> value, and value -> id
+      WHEN NOT MATCHED THEN
+        INSERT VALUES (source.value, source.id); -- without this, id -> value, and value -> id
+  "
+  dbExecute(con, sql)
+  ```
+
+## NA values
+
+In databases, NULL is used to represent missing values (NA in R). When
+you read data from a database into R, NULL values are automatically
+converted to NA. Similarly, when you write data from R to a database, NA
+values are converted to NULL.
+
+When performing operations involving NULL values in SQL, it’s important
+to remember that NULL is not equal to anything, including itself.
+Therefore, you should use the `IS NULL` or `IS NOT NULL` operators to
+check for NULL values instead of using equality operators (`=` or `!=`).
+
+This causes problems when using functions such as rows_insert(),
+rows_update(), and rows_upsert() from dbplyr, which rely on equality
+comparisons to identify matching rows. If the key columns contain NULL
+(NA in R) values, these functions will not consider those rows as
+matching. For join operations such as inner_join(), left_join(), etc.,
+one can use the argument `na_matches` to control how NA values are
+treated.
 
 ## List of useful functions from dbplyr
 
