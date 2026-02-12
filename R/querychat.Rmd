@@ -1,0 +1,242 @@
+---
+title: "Example of using querychat to build LLM-enabled UI"
+author: "Zhenguo Zhang"
+date: "`r Sys.Date()`"
+# use github format
+output:
+  github_document:
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(shiny)
+library(bslib)
+library(querychat)
+library(DT)
+library(palmerpenguins)
+```
+
+[querychat](https://posit-dev.github.io/querychat) is an R package built on
+shiny and ellmer to help R developers easily build LLM-enabled UI. Under the hood,
+querychat provides LLM models with a data schema, system prompt, and user prompt,
+asking for SQL query generation. The generated SQL query is then executed against the database
+locally and the results are returned to users.
+
+One can use `querychat_app()` to quickly explore a dataset, but to unlock the
+full power, one needs to use the `querychat()` function to build shiny apps.
+
+querychat is a particularly good fit for Shiny apps that have:
+
+- A single data source (or a set of related tables that can be joined)
+- Multiple filters that let users slice and explore the data in different ways
+- Several visualizations and outputs that all depend on the same filtered data
+
+Compared to fixed query variables in regular shiny apps, using querychat allows
+users to specify any filtering and ask for results using natural languages.
+
+## Three steps of integrating querychat into shiny apps
+
+- Initialize a QueryChat instance with your data
+- Add the UI component (either \$sidebar() or \$ui())
+- Use reactive values like \$df(), \$sql(), and \$title() to build outputs that respond to user queries
+
+Here is a quick example:
+
+```{r, eval=F}
+# Step 1: Initialize QueryChat
+## Here we are going to use a local ollama model, but querychat also supports using remote API-based models, such as OpenAI and Vertex AI. Please check the documentation for more details.
+chat_agent <- ellmer::chat_ollama(
+  model = "qwen3:4b", # this model is slow though; try a faster model if you have one
+)
+qc <- QueryChat$new(penguins,
+                    client = chat_agent)
+
+# Step 2: Add UI component
+ui <- page_sidebar(
+  sidebar = qc$sidebar(),
+  card(
+    card_header("Data Table"),
+    dataTableOutput("table")
+  ),
+  card(
+    fill = FALSE,
+    card_header("SQL Query"),
+    verbatimTextOutput("sql")
+  )
+)
+
+# Step 3: Use reactive values in server
+server <- function(input, output, session) {
+  qc_vals <- qc$server()
+  
+  output$table <- renderDataTable({
+    datatable(qc_vals$df(), fillContainer = TRUE)
+  })
+
+  output$sql <- renderText({
+    qc_vals$sql() %||% "SELECT * FROM penguins"
+  })
+}
+
+shinyApp(ui, server)
+```
+
+There are three main reactive values provided by querychat:
+
+- `df()`: returns fildered data frame, and updated whenever the user asks for a new query
+
+- `sql()`: returns the generated SQL query, good for transparency and reproducibility. One
+  can programatically to update the query by using `sql()` as a setter function.
+  
+- `title()`: returns the title of the query, which is generated based on the user prompt. It can be used to automatically generate titles for different visualizations.
+
+
+Additional methods:
+
+- `ui()`: returns the whole chat UI component, which can be placed in any place of
+  the app.
+
+## Another example with interactive plot
+
+```{r, eval=F}
+library(plotly)
+
+chat_agent <- ellmer::chat_ollama(
+  model = "qwen3:4b", # this model is slow though; try a faster model if you have one
+)
+qc <- QueryChat$new(penguins,
+                    client = chat_agent)
+
+ui <- page_sidebar(
+  sidebar = qc$sidebar(),
+  card(
+    card_header("Data Table"),
+    dataTableOutput("table")
+  ),
+  card(
+    card_header("Body Mass by Species"),
+    plotlyOutput("mass_plot")
+  )
+)
+
+server <- function(input, output, session) {
+  qc_vals <- qc$server()
+
+  output$table <- renderDataTable({
+    datatable(qc_vals$df(), fillContainer = TRUE)
+  })
+
+  output$mass_plot <- renderPlotly({
+    ggplot(qc_vals$df(), aes(x = body_mass_g, fill = species)) +
+      geom_density(alpha = 0.4) +
+      theme_minimal()
+  })
+}
+
+shinyApp(ui, server)
+```
+
+## Programmatic updates
+
+As mentioned above, one can set values by using the querychat methods to
+update results, without using users' inputs and LLMs. Below is an example
+when user clicks 'reset' button, the data will return to the origial:
+
+```{r, eval=F}
+ui <- page_sidebar(
+  sidebar = sidebar(
+    qc$ui(),
+    hr(),
+    actionButton("reset", "Reset Filters")
+  ),
+  # Main content
+  card(dataTableOutput("table"))
+)
+
+server <- function(input, output, session) {
+  qc_vals <- qc$server()
+
+  output$table <- renderDataTable({
+    qc_vals$df()
+  })
+
+  observeEvent(input$reset, {
+    qc_vals$sql("")
+    qc_vals$title(NULL)
+  })
+}
+
+shinyApp(ui, server)
+```
+
+## Multiple tables
+
+To use more than one table, one can do one of thr following:
+
+-  join the tables into one before passing to querychat
+- use multiple querychat instances for different tables
+
+And here is an example:
+
+```{r, eval=F}
+library(shiny)
+library(bslib)
+library(palmerpenguins)
+library(titanic)
+library(querychat)
+
+qc_penguins <- QueryChat$new(penguins)
+qc_titanic <- QueryChat$new(titanic_train)
+
+ui <- page_navbar(
+  title = "Multiple Datasets",
+  sidebar = sidebar(
+    id = "sidebar",
+    conditionalPanel(
+      "input.navbar == 'Penguins'",
+      qc_penguins$ui()
+    ),
+    conditionalPanel(
+      "input.navbar == 'Titanic'",
+      qc_titanic$ui()
+    )
+  ),
+  nav_panel(
+    "Penguins",
+    card(dataTableOutput("penguins_table"))
+  ),
+  nav_panel(
+    "Titanic",
+    card(dataTableOutput("titanic_table"))
+  ),
+  id = "navbar"
+)
+
+server <- function(input, output, session) {
+  qc_penguins_vals <- qc_penguins$server()
+  qc_titanic_vals <- qc_titanic$server()
+
+  output$penguins_table <- renderDataTable({
+    qc_penguins_vals$df()
+  })
+
+  output$titanic_table <- renderDataTable({
+    qc_titanic_vals$df()
+  })
+}
+
+shinyApp(ui, server)
+```
+
+
+
+## References
+
+- querychat building app documentation: https://posit-dev.github.io/querychat/r/articles/build.html
+- querychat tools: https://posit-dev.github.io/querychat/r/articles/tools.html
+- provide context for models: https://posit-dev.github.io/querychat/r/articles/context.html
+
+
+
+
