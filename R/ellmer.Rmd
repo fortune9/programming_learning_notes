@@ -29,7 +29,7 @@ based on those inputs.
 
 It provides interfaces to various model providers, including openrouter, huggingface, google
 gemini, local ollama, deepseek, claude, and more. To interact with them, one just need to call
-function like `chat_ollama()`, `chat_openrouter()`, `chat_huggingface()`, etc.
+function like `chat_ollama()`, `chat_openrouter()`, `chat_huggingface()`, `chat_aws_bedrock`, etc.
 
 Let's try an example using ollama:
 
@@ -76,6 +76,71 @@ response <- chat_agent$chat("How good is Xiaomi model")
 print(response)
 ```
 
+## Models on AWS Bedrock
+
+AWS Bedrock provides access to a variety of foundation models from
+different providers. To use AWS Bedrock with ellmer, you need to set
+up your AWS credentials and then you can create a chat agent that
+connects to AWS Bedrock.
+
+Under the hood, ellmer uses the [paws](https://www.paws-r-sdk.com/)
+package to connect to AWS services, so it will look for credentials in
+the same way as the AWS CLI and other AWS SDKs do. This means that if
+you have set up your credentials using AWS SSO or any other method,
+ellmer should be able to find them as long as you specify the correct
+profile name.
+
+To connect to aws bedrock, one need to setup AWS credentials first.
+Here is an example of using AWS SSO to set up credentials:
+
+```{bash, eval=FALSE}
+# create a profile with AWS SSO
+aws configure sso --profile my-sso-profile
+# follow the prompts to set up SSO and select the appropriate account and role
+# then login this profile to get temporary credentials
+aws sso login --profile my-sso-profile
+```
+
+Before running R code, you need install the package 'paws.common',
+which is used by ellmer to connect to AWS Bedrock. You can do this
+with the following command:
+
+```{r, eval=FALSE}
+install.packages("paws.common")
+```
+
+In the R code, you can specify the profile name when creating the chat
+agent:
+
+```{r, eval=FALSE}
+library(ellmer)
+# create a chat completion using AWS Bedrock
+chat_agent <- chat_aws_bedrock(
+    profile = "my-sso-profile", # specify the profile named; alternatively, you can set the environment variable AWS_PROFILE to this value, so that you don't need to specify it in the code
+    base_url = "https://bedrock-runtime.us-east-1.amazonaws.com", # specify the base url for AWS Bedrock
+    model = "us.anthropic.claude-haiku-4-5-20251001-v1:0" # specify the model name
+    )
+# send a message to the agent
+response <- chat_agent$chat("How good is AWS Bedrock model?")
+```
+
+Note that I specified the `base_url` above, because the default value
+may not work. Depending on your AWS region, you may need to specify
+the base URL for AWS Bedrock. For a full list of AWS endpoints, check
+https://docs.aws.amazon.com/general/latest/gr/bedrock.html.
+
+Also when one calls model across different regions, one needs to add a
+prefix 'us' or 'eu' to the model name, e.g.
+`us.anthropic.claude-haiku-4-5-20251001-v1:0` or
+`eu.anthropic.claude-haiku-4-5-20251001-v1:0`, otherwise it will
+return an error. For more details, check https://aws.amazon.com/blogs/machine-learning/getting-started-with-cross-region-inference-in-amazon-bedrock/
+
+For more details on how to connect to aws services and set up
+credentials, please check the following resources:
+
+- https://www.paws-r-sdk.com/#credentials
+- https://www.paws-r-sdk.com/developer_guide/credentials/#use-aws-single-sign-on-sso
+
 ## Structured output
 
 When using an LLM to extract data from text or images, you can ask the chatbot to format it in JSON or any other format that you like. This works well most of the time, but there’s no guarantee that you’ll get the exact format you want.
@@ -117,7 +182,7 @@ But ellmer goes one step further and converts the JSON to the closest R analog. 
 - Arrays of objects -> data frames.
 
 One can turn off the R type conversion by setting the argument `convert = FALSE` in the function
-`chat_structured()` or `parallel_chat_structured()`.
+`chat_structured()` or `    parallel_chat_structured()`.
 
 With this specification, we can ask the model to return structured data.
 
@@ -126,7 +191,7 @@ instead of the usual `chat()` method.
 
 And now let's extract structured output from a model to demonstrate the capbility:
 
-```{r}
+```{r, eval=FALSE}
 # create a chat completion using ollama with structured output
 chat_agent <- chat_ollama(
   model = "deepseek-r1:1.5b",
