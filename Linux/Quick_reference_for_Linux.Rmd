@@ -321,3 +321,59 @@ tmux can keep an ssh session active even the window is terminated.
     * tmux-resurrect: save sessions to a file, default *~/.local/share/tmux/resurrect*,
         can be set via *set -g @resurrect-dir <path>* in *~/.tmux.conf*.
     * tmux plugin manager: plugin manager
+
+## X11
+
+X11 is a windowing system for bitmap displays, and it provides the
+basic framework for a GUI environment. It is a client-server system,
+where the X server runs on the local machine and manages the display,
+while X clients are applications that connect to the X server to
+display their graphical interface.
+
+### Fix the error "X11 forwarding request failed on channel 0"
+
+This error typically occurs when you try to use X11 forwarding over
+SSH, but the X11 forwarding is not properly set up or enabled on the
+server. Here are some steps to fix this issue:
+
+1. Ensure that X11 forwarding is enabled in the SSH server configuration. You can check this by looking at the SSH server configuration file, usually located at `/etc/ssh/sshd_config`. Make sure the following line is present and not commented out:
+
+   ```
+   X11Forwarding yes
+   ```
+    After making changes to the SSH server configuration, restart the SSH service:
+    
+    ```
+    sudo systemctl restart sshd
+    ```
+
+2. Ensure that the X11 display is set correctly on the client side.
+   When you connect to the server using SSH, use the `-X` or `-Y`
+   option to enable X11 forwarding:
+
+    ```
+    ssh -X user@remote_host
+    ```
+    or
+
+    ```
+    ssh -Y user@remote_host
+    ```
+
+3. Make sure that the X11 server is running on your local machine (the
+   client). If you are using a Linux or macOS system, the X11 server
+   is usually included and can be started with the command `startx`.
+   If you are using Windows, you may need to install an X11 server
+   such as Xming or VcXsrv.
+
+4. Check for any firewall rules that may be blocking X11 forwarding.
+   Ensure that the necessary ports (usually port 6000 and above) are
+   open for X11 forwarding.
+
+5. Sometimes, internet browsers may not work well, and you may need too
+   set up the enviroment variable XAUTHORITY to point to the correct file, for example:
+
+   ```
+    export XAUTHORITY=/home/user/.XAUTHORITY
+   ```
+
