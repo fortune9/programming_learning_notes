@@ -10,8 +10,8 @@ output:
 
 
 ```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE, warnings=FALSE, message=FALSE)
-workDir<-tempdir()
+knitr::opts_chunk$set(echo = TRUE, warnings = FALSE, message = FALSE)
+workDir <- tempdir()
 ```
 
 This document is based on the example at https://r4ds.hadley.nz/arrow.
@@ -36,10 +36,10 @@ library(tidyverse)
 ### Download data
 
 ```{r}
-dir.create(file.path(workDir,"data"), showWarnings = FALSE)
-dataUrl<-"https://r4ds.s3.us-west-2.amazonaws.com/seattle-library-checkouts.csv"
-dataFile<-file.path(workDir,"data","seattle-library-checkouts.csv")
-curl::multi_download(dataUrl, destfiles = dataFile, resume=TRUE)
+dir.create(file.path(workDir, "data"), showWarnings = FALSE)
+dataUrl <- "https://r4ds.s3.us-west-2.amazonaws.com/seattle-library-checkouts.csv"
+dataFile <- file.path(workDir, "data", "seattle-library-checkouts.csv")
+curl::multi_download(dataUrl, destfiles = dataFile, resume = TRUE)
 ```
 ### Read data
 
@@ -53,7 +53,7 @@ This would avoid reading all the data into memory
 
 ```{r}
 seattle_csv <- open_dataset(
-  sources = file.path(workDir, "data/seattle-library-checkouts.csv"), 
+  sources = file.path(workDir, "data/seattle-library-checkouts.csv"),
   col_types = schema(ISBN = string()),
   format = "csv"
 )
@@ -76,10 +76,10 @@ Now let's use dplyr verbs to explore the dataset and use `collect()` to force ar
 and return some data.
 
 ```{r}
-seattle_csv |> 
-  group_by(CheckoutYear) |> 
-  summarise(Checkouts = sum(Checkouts)) |> 
-  arrange(CheckoutYear) |> 
+seattle_csv |>
+  group_by(CheckoutYear) |>
+  summarise(Checkouts = sum(Checkouts)) |>
+  arrange(CheckoutYear) |>
   collect()
 ```
 
@@ -110,7 +110,7 @@ Now let's rewrite the Seattle library data into different files based on `Checko
 some analyses will only want to look at a single year or a few years of data.
 
 ```{r}
-seattle_csv |> 
+seattle_csv |>
   write_dataset(
     path = file.path(workDir, "data/seattle_parquet"),
     format = "parquet",
@@ -124,8 +124,8 @@ Let's check the files we just produced
 ```{r}
 tibble(
   files = list.files(
-    path = file.path(workDir, "data/seattle_parquet"), 
-    recursive = TRUE, 
+    path = file.path(workDir, "data/seattle_parquet"),
+    recursive = TRUE,
     full.names = TRUE
   ),
   size_MB = file.info(files)$size / 2^20
@@ -144,7 +144,7 @@ is similar to reading a single file, but the input is the folder containing all 
 
 ```{r}
 seattle_pq <- open_dataset(
-  sources = file.path(workDir, "data/seattle_parquet"), 
+  sources = file.path(workDir, "data/seattle_parquet"),
   format = "parquet"
 )
 print(seattle_pq)
@@ -153,12 +153,12 @@ print(seattle_pq)
 Now let's found out the number of books checked each month in the last 5 years:
 
 ```{r}
-seattle_pq |> 
-  filter(CheckoutYear >= 2018, MaterialType == "BOOK") |> 
-  group_by(CheckoutYear, CheckoutMonth) |> 
-  summarise(TotalCheckouts = sum(Checkouts)) |> 
+seattle_pq |>
+  filter(CheckoutYear >= 2018, MaterialType == "BOOK") |>
+  group_by(CheckoutYear, CheckoutMonth) |>
+  summarise(TotalCheckouts = sum(Checkouts)) |>
   arrange(CheckoutYear, CheckoutMonth) ->
-  query
+query
 # show what will happen when collect() is called
 print(query)
 ```
@@ -178,22 +178,22 @@ Notes:
 First, let's see how long does it take to calculate the nunber of checkouts in each month of 2021:
 
 ```{r}
-seattle_csv |> 
+seattle_csv |>
   filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
   group_by(CheckoutMonth) |>
   summarize(TotalCheckouts = sum(Checkouts)) |>
   arrange(desc(CheckoutMonth)) |>
-  collect() |> 
+  collect() |>
   system.time()
 ```
 
 ```{r}
-seattle_pq |> 
+seattle_pq |>
   filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
   group_by(CheckoutMonth) |>
   summarize(TotalCheckouts = sum(Checkouts)) |>
   arrange(desc(CheckoutMonth)) |>
-  collect() |> 
+  collect() |>
   system.time()
 ```
 
@@ -215,7 +215,7 @@ which was achieved for the following reasons:
 Now let's find out the most popular book of each year
 
 ```{r}
-seattle_pq |> 
+seattle_pq |>
   filter(MaterialType == "BOOK") |>
   group_by(CheckoutYear, Title) |>
   summarize(TotalCheckouts = sum(Checkouts)) |>
@@ -235,17 +235,173 @@ DuckDB database by calling arrow::to_duckdb(), and we can convert the Seattle pa
 followed by operations, like:
 
 ```{r}
-seattle_pq |> 
+seattle_pq |>
   to_duckdb() |>
   filter(CheckoutYear == 2021, MaterialType == "BOOK") |>
   group_by(CheckoutMonth) |>
   summarize(TotalCheckouts = sum(Checkouts)) |>
   arrange(desc(CheckoutMonth)) |>
-  collect() |> 
+  collect() |>
   system.time()
 ```
 The nice thing about `to_duckdb()` is that the conversion doesn't involve any memory copying,
 enabling seamless transitions from one system to another.
+
+## Different ways of reading data
+
+The `open_dataset()` function is a powerful way to read data, but it’s not the only way.
+If you have a single file, you can also use `read_delim_csv()`, `read_csv_arrow()` or `read_parquet()`, 
+which will read the entire file into memory as an Arrow Table. This can be useful if you want to
+do some in-memory manipulation of the data before using dplyr.
+
+Interestingly, the returned object from `read_csv_arrow()` and `open_dataset()` can be both used with dplyr,
+but the former is an Arrow Table, while the latter is an Arrow Dataset. The main difference is that
+an Arrow Table is an in-memory data structure that holds the entire dataset, while an Arrow Dataset is a logical representation of a collection of files on disk.
+
+## Interaction with the package `future`
+
+The `future` package provides a simple and consistent API for parallel and distributed computing in R. It allows you to execute code in parallel across multiple cores or machines with different backends, such as multicore, multisession, or cluster.
+
+### The Problem: Non-Exportable Objects
+
+Arrow objects (such as `Table`, `RecordBatch`, `Dataset`, and `RecordBatchReader`) contain external pointers that are tied to the current R session. These objects cannot be directly serialized and sent to worker processes in parallel computing frameworks like `future`. If you try to use Arrow objects directly with `future.apply` or similar functions, you'll encounter errors because the external pointers become invalid in the worker processes.
+
+### Detecting Non-Exportable Objects
+
+You can configure the `future` package to detect non-exportable objects before attempting to export them:
+
+```{r, eval=FALSE}
+library(future)
+library(future.apply)
+
+# Enable detection of non-exportable objects
+options(future.globals.onReference = "error")
+
+# This will fail with an error about external pointers
+plan(multisession, workers = 2)
+seattle_pq <- open_dataset(
+  sources = file.path(workDir, "data/seattle_parquet"),
+  format = "parquet"
+)
+
+# This would fail:
+# future_lapply(1:3, function(x) {
+#   seattle_pq |> filter(CheckoutYear == 2020 + x) |> collect()
+# })
+```
+
+### Solution 1: Marshal and Unmarshal Arrow Objects
+
+The recommended approach is to serialize Arrow objects using `write_to_raw()` and deserialize them in worker processes using `read_ipc_stream()`:
+
+```{r, eval=FALSE}
+library(future.apply)
+plan(multisession, workers = 2)
+
+# Read data into an Arrow Table
+seattle_table <- seattle_pq |>
+  filter(CheckoutYear >= 2020) |>
+  collect()
+
+# Serialize to raw vector for safe transport
+seattle_raw <- write_to_raw(seattle_table, format = "stream")
+
+# Now use it in parallel operations
+results <- future_lapply(2020:2022, function(year) {
+  # Deserialize in the worker process
+  data <- read_ipc_stream(seattle_raw)
+
+  # Perform operations
+  data |>
+    filter(CheckoutYear == year, MaterialType == "BOOK") |>
+    summarise(TotalCheckouts = sum(Checkouts)) |>
+    mutate(Year = year)
+})
+
+# Combine results
+do.call(rbind, results)
+```
+
+### Solution 2: Recreate Arrow Objects in Workers
+
+Instead of passing Arrow objects, pass file paths and recreate the objects in each worker:
+
+```{r, eval=FALSE}
+plan(multisession, workers = 2)
+
+# Pass the path, not the object
+data_path <- file.path(workDir, "data/seattle_parquet")
+
+results <- future_lapply(2020:2022, function(year) {
+  # Recreate the dataset in each worker
+  pq <- arrow::open_dataset(data_path, format = "parquet")
+
+  pq |>
+    filter(CheckoutYear == year, MaterialType == "BOOK") |>
+    group_by(CheckoutMonth) |>
+    summarise(TotalCheckouts = sum(Checkouts)) |>
+    collect() |>
+    mutate(Year = year)
+}, future.packages = "arrow")
+
+# Combine results
+bind_rows(results)
+```
+
+### Solution 3: Use Arrow's Built-in Parallelism
+
+For many operations, Arrow already provides parallel execution through its C++ compute engine. You may not need `future` at all:
+
+```{r, eval=FALSE}
+# Control the number of CPU threads Arrow uses
+set_cpu_count(4)
+
+# Arrow automatically uses multiple threads for operations
+seattle_pq |>
+  filter(MaterialType == "BOOK") |>
+  group_by(CheckoutYear) |>
+  summarise(TotalCheckouts = sum(Checkouts)) |>
+  collect()
+```
+
+### Best Practices
+
+1. **Prefer Arrow's native parallelism** for operations on Arrow datasets, as it's highly optimized
+2. **Use file paths** instead of objects when possible with `future`
+3. **Marshal objects with `write_to_raw()`** when you need to pass data to workers
+4. **Specify `future.packages = "arrow"`** to ensure the arrow package is loaded in workers
+5. **Use `future.seed = TRUE`** for reproducible random operations across workers
+
+### Example: Parallel Processing of Multiple Datasets
+
+```{r, eval=FALSE}
+plan(multisession, workers = 2)
+
+# Process multiple years in parallel
+years_to_process <- 2018:2022
+data_path <- file.path(workDir, "data/seattle_parquet")
+
+results <- future_lapply(years_to_process, function(year) {
+  library(arrow)
+  library(dplyr)
+
+  dataset <- open_dataset(data_path, format = "parquet")
+
+  dataset |>
+    filter(CheckoutYear == year) |>
+    group_by(MaterialType) |>
+    summarise(
+      TotalCheckouts = sum(Checkouts),
+      UniqueItems = n_distinct(Title)
+    ) |>
+    collect() |>
+    mutate(Year = year)
+}, future.packages = c("arrow", "dplyr"), future.seed = TRUE)
+
+# Combine and analyze
+final_result <- bind_rows(results)
+print(final_result)
+```
 
 
 
@@ -253,5 +409,5 @@ enabling seamless transitions from one system to another.
 
 - parquet format: https://parquet.apache.org/
 
-
+- arrow package: https://arrow.apache.org/
 
