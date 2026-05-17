@@ -12,8 +12,8 @@ output:
 
 ```{r setup, include=F}
 library(knitr)
-opts_chunk$set(echo=F)
-nfLink<-'[NextFlow](https://www.nextflow.io/)'
+opts_chunk$set(echo = F)
+nfLink <- "[NextFlow](https://www.nextflow.io/)"
 ```
 
 `r nfLink` is a platform to creat and run data analysis pipelines, and each
@@ -1235,6 +1235,18 @@ Handler | Description
 workflow.onComplete | what to do when the pipeline complete
 workflow.onError | what to do when error occured
 
+Note on workflow.failOnIgnore:
+- when one sets errorStrategy to 'ignore' for a process, the whole workflow will complete
+    successfully even the process has errors. workflow.success will be true. And the `$?`
+    value of the process will be 0
+- to let the workflow indicate that ignored failure has happened, one can set `workflow.failOnIgnore = true`,
+    then the workflow will still complete successfully (workflow.success is true), but the `$?` value
+    after the workflow run will be 1.
+- also note that if the output of the failed process is used in downstream process, say combining
+    the results from multiple processes, then failed process will not contribute any inputs to
+    the downstream process, which may not be what you want.
+
+    
 ## DSL2
 
 DSL2 is an extension of previous syntax, to enable it, one need put
