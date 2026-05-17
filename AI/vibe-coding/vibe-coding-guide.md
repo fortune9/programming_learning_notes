@@ -40,6 +40,12 @@ coding based on my experience and reading:
   architecture first, make subtasks modular and clear, and then code
   each subtask.
 
+- **Make a plan**: Before coding, write the plan into a file, properly
+  named based on the task, let user to review and approve the plan,
+  and then start coding based on the plan. The plan should include the
+  overall strategy, the subtasks, and the implementation details for
+  each subtask.
+
 - **Start small**: Implement each subtask with simple and
   straightforward code; don't add features not asked for.
 
@@ -56,6 +62,13 @@ coding based on my experience and reading:
   subtask is implemented, test it before moving on to the next one.
   This can help catch any errors early and ensure that the code is
   working as expected.
+
+- **Testing methods**: Use unit tests to test individual functions and
+  classes, integration tests to test how different parts of the code
+  work together, and end-to-end tests to test the entire system. Write
+  tests for edge cases and potential failure points.
+  * use pytest for python code
+  * use testthat for R code
 
 - **Edit code**: Don't change adjacent code and comments when editing
   existing code; don't refactor things that aren't broken; remove
