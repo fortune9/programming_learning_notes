@@ -223,6 +223,7 @@ This is powerful because when we compute Z[i] for some position i:
 ```
 String: a a b a a b a a b x y z
 Index:  0 1 2 3 4 5 6 7 8 9 10 11
+```
 
 Suppose we've computed:
 - Z[3] = 6 (substring "aabaab" matches prefix)
@@ -237,7 +238,7 @@ Prefix:   └─────────┘
 
 Z-box:          └─────────┘
                 pos 3-8
-                L       R
+                L         R
 
 The Z-box [3,8] means s[3..8] matches s[0..5]
 ```
