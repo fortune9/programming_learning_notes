@@ -1,0 +1,155 @@
+---
+title: "Test-mirai"
+format: html
+editor: visual
+---
+
+## Quarto
+
+Quarto enables you to weave together content and executable code into a finished document. To learn more about Quarto see <https://quarto.org>.
+
+## Running Code
+
+When you click the **Render** button a document will be generated that includes both content and the output of embedded code. You can embed code like this:
+
+```{r}
+1 + 1
+```
+
+You can add options to executable code like this
+
+```{r}
+#| echo: false
+2 * 2
+```
+
+The `echo: false` option disables the printing of code (only output is displayed).
+
+## mirai
+
+[mirai](https://mirai.r-lib.org) is a package for developing asynchronous code
+so that you can write code that runs in the background while you do other things. To learn more about mirai see <https://mirai.r-lib.org>.
+
+## First example
+
+```{r}
+library(mirai)
+# create an mirai object
+m <- mirai({
+  Sys.sleep(5)
+  "Hello, world!"
+})
+```
+
+The code above creates an mirai object that will run the code inside the curly braces in the background (in a different R session). The code will sleep for 5 seconds and then return "Hello, world!".
+
+To get the result of the mirai object, one can do the following:
+
+```{r}
+m$data
+```
+
+
+You can also collect the results using bracket operator:
+
+```{r}
+m[] # block until it its complete
+```
+
+
+If a mirai object has not been completed, then running the following command will
+show `TRUE`:
+
+```{r}
+unresolved(m)
+```
+
+## mirai_map()
+
+The `mirai_map()` function allows you to run a function on multiple inputs in parallel. For example, the following code will run the `Sys.sleep()` function on the numbers 1 to 5 in parallel, but before that you need set up a cluster using the function
+`mirai::daemons()`:
+
+```{r}
+mirai::daemons(2) # set up a cluster with 2 workers
+mirai_map(1:5, function(x) {
+  Sys.sleep(x)
+  x
+})
+```
+
+One can use `info()` to check the status of a the mirai cluster.
+
+## No inheritence of global variables
+
+When one defines a mirai object, the code inside the curly braces will not inherit any global variables. For example, the following code will return an error because `x` is not defined inside the mirai object:
+
+```{r, eval=FALSE}
+x <- 10
+m2 <- mirai({
+  x + 1
+})
+m2$data
+```
+
+
+## Setup daemons in a dynamic way
+
+One can use `local_url()` to setup local connections. For example,
+we will start a local cluster of 2 workers first, and then add another
+3 workers later
+
+```{r}
+daemons(url = local_url())
+launch_local(2) # launch 2 workers
+Sys.sleep(1) # sleep for a bit to leter the cluster to spin up
+info() # check the status of the cluster
+```
+
+Later, we can add another 3 more:
+
+```{r}
+launch_local(3) # launch 3 more workers
+Sys.sleep(1)
+info() # check the status of the cluster
+```
+
+
+Additionally, one can create multiple clusters by providing the parameter
+`.compute` to `deamons()`. Here are two examples:
+
+```{r, eval=FALSE}
+daemons(2, .compute = "cluster1")
+daemons(3, .compute = "cluster2")
+# now use the two clusters in parallel
+mirai(Sys.sleep(1), .compute = "cluster1")
+mirai(Sys.sleep(1), .compute = "cluster2")
+```
+
+
+To close the clusters, run the following command:
+
+```{r}
+daemons(0)
+info()
+```
+
+## Connect daemons on a remote machine
+
+To do this, one can create daemons on a remote machine using the following
+ssh settings:
+
+```{r, eval=FALSE}
+daemons(
+  n = 4,
+  url = local_url(tcp = TRUE),
+  remote = ssh_config("ssh://user@node1", tunnel = TRUE)
+)
+```
+
+This will create 4 workers on the remote machine `node1` and connect them to the local machine using SSH tunneling. The `tunnel = TRUE` option will automatically set up SSH tunneling for the connection. Check the function `ssh_config()` for more details on how to set up the SSH connection, including the path to `Rscript` in the remote machine.
+
+Note that for this to work, one need to make sure the listened ports in remote and local
+machine are all reachable, not blocked by tools such as Zscaler.
+
+
+
