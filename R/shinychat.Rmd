@@ -1,0 +1,135 @@
+---
+title: "How to use shinychat with ellmer"
+author: "Zhenguo Zhang"
+date: "`r Sys.Date()`"
+# use github format
+output:
+  github_document:
+    toc: true
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warnings=FALSE, message=FALSE)
+workDir<-tempdir()
+```
+
+## Introduction
+
+In this tutorial, we will learn how to use the `shinychat` package in
+R to create interactive chat applications. The `shinychat` package
+allows you to build chat interfaces that can be integrated with
+various AI models, including those provided by OpenAI. We will go
+through the steps of setting up a simple chat application using
+`shinychat` and how to connect it with an AI model for generating
+responses.
+
+## Setting Up the Environment
+
+To get started, you need to install the `shinychat` package. You can
+do this using the following command:
+
+```{r install, eval=FALSE}
+install.packages("shinychat")
+```
+
+Once you have the package installed, you can load it into your R
+session:
+```{r load}
+library(shinychat)
+```
+
+## Creating a Simple Chat application
+
+To create a simple chat application, you can use the function
+`chat_mod_ui()` to define the user interface and `chat_mod_server()`
+to define the server logic. Here’s a basic example of how to set up a
+chat application:
+
+```{r chat-app, eval=FALSE}
+library(shiny)
+library(shinychat)
+library(ellmer)
+
+ui <- fluidPage(
+  chat_mod_ui("chat1")
+)
+
+server <- function(input, output, session) {
+    # create a chat client using ellmer
+    chat_client <- ellmer::chat_google_gemini(model =
+                                              "gemini-2.5-flash")
+  chat_mod_server("chat1", client = chat_client)
+}
+
+shinyApp(ui, server)
+```
+
+In this example, we create a simple Shiny application with a chat
+interface. We use the `chat_mod_ui()` function to create the user
+interface for the chat and the `chat_mod_server()` function to handle
+the server logic. We also create a chat client using the `ellmer`
+package, which allows us to connect to the Google Gemini model for
+generating responses.
+
+## Tips and pitfalls
+
+### Critical: Module ID Management
+
+If you call `chat_mod_server()` multiple times, make sure to use
+different module IDs for each instance. For example, you can use
+"chat1", "chat2", etc. This is crucial to avoid conflicts between
+different chat instances, and to avoid the error of ID conflicts in
+shiny modules.
+
+#### ❌ Don't: Reuse the same ID
+
+```r
+# WRONG: This causes UI conflicts when switching models
+chat_client <- chat_mod_server("my_chat", client = new_client)
+# Later, trying to create another instance with the same ID...
+chat_client <- chat_mod_server("my_chat", client = different_client)
+```
+
+**Problem**: Shiny's module system requires unique IDs for each instance. Reusing IDs causes:
+- UI elements from old instances persist and interfere
+- Event handlers from previous instances continue firing
+- Chat history and state get mixed between instances
+
+#### ✅ Do: Use dynamic, unique IDs
+
+```r
+# CORRECT: Generate a unique ID for each instance
+new_chat_id <- paste0("chat_", paste(sample(c(0:9, letters, LETTERS), 15, replace = TRUE), collapse = ""))
+chat_client <- chat_mod_server(new_chat_id, client = new_client)
+```
+
+### Dynamic UI Rendering Pattern
+
+#### ❌ Don't: Hardcode module IDs in UI
+
+```r
+# WRONG: Static ID in UI
+chat_mod_ui("my_chat")
+```
+
+#### ✅ Do: Use renderUI() for dynamic module creation
+
+```r
+# In UI:
+uiOutput("chat_ui")
+
+# In server:
+chat_id <- reactiveVal(NULL)
+# when the chat_id changes, the UI will automatically update
+output$chat_ui <- renderUI({
+  req(chat_id)
+  chat_mod_ui(chat_id)
+})
+```
+
+**Why this works**: When `chat_id` changes, `renderUI()` automatically:
+1. Removes the old module UI
+2. Creates new module UI with the new ID
+3. Cleans up event handlers from the old module
+
