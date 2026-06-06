@@ -1,0 +1,1445 @@
+---
+title: "plumber2: Building REST APIs in R"
+output:
+  github_document:
+    toc: true
+  html_document:
+    toc: true
+    toc_float: true
+    theme: united
+    highlight: tango
+  md_document:
+    variant: gfm
+    toc: true
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+  echo = TRUE,
+  eval = FALSE, # Don't run API servers during knitting
+  message = FALSE,
+  warning = FALSE
+)
+```
+
+# Introduction
+
+**plumber2** is a modern R package for creating REST APIs that expose R functions as web services. It's a complete rewrite of the original plumber package with improved performance, better design patterns, and enhanced functionality.
+
+# Why plumber2?
+
+## plumber2 vs Shiny
+
+While both plumber2 and Shiny allow you to expose R functionality over HTTP, they serve different purposes:
+
+| Feature | plumber2 | Shiny |
+|---------|----------|-------|
+| **Purpose** | REST API / Web Services | Interactive Web Applications |
+| **Interface** | JSON/CSV/XML endpoints | HTML/JavaScript UI |
+| **Interaction** | Programmatic (via HTTP) | Visual/Interactive |
+| **State** | Stateless (each request independent) | Stateful (maintains session) |
+| **Use Case** | Data services, microservices, backend APIs | Dashboards, interactive visualizations |
+| **Clients** | Any HTTP client (curl, Python, JavaScript) | Web browsers |
+| **Output** | Structured data (JSON, CSV, etc.) | Web pages with widgets |
+
+**When to use plumber2:**
+- Building APIs for mobile apps or web applications
+- Creating microservices that other systems consume
+- Exposing R models/analysis as web services
+- Need programmatic access to R functions
+- Building backend services for data pipelines
+
+**When to use Shiny:**
+- Creating interactive dashboards for end users
+- Need visual exploration tools
+- Users interact through browser UI
+- Require reactive programming patterns
+
+# Creating APIs
+
+## Basic API Structure
+
+plumber2 uses a functional, pipe-friendly approach:
+
+```{r basic-api}
+library(plumber2)
+
+# Create an API object
+my_api <- api()
+
+# Add endpoints using pipes
+my_api |>
+  api_get("/hello", function(name = "World") {
+    list(greeting = paste("Hello,", name))
+  })
+```
+
+## Annotation-Based Approach
+
+You can also define APIs using special comments (`#*`) in `.R` files:
+
+```{r annotation-file, eval=FALSE}
+# plumber.R file
+#* Echo back the input
+#* @get /echo
+function(msg = "Hello") {
+  list(message = msg)
+}
+
+#* Calculate sum
+#* @post /sum
+function(x, y) {
+  list(result = as.numeric(x) + as.numeric(y))
+}
+```
+
+Load and run annotation-based APIs:
+
+```{r load-annotations}
+# Parse the file
+api <- api("plumber.R")
+
+# Run the server
+api |> api_run(port = 8080)
+```
+
+## Key API Functions
+
+| Function | Description |
+|----------|-------------|
+| `api()` | Create a new API object |
+| `api_get()` | Add GET endpoint |
+| `api_post()` | Add POST endpoint |
+| `api_put()` | Add PUT endpoint |
+| `api_delete()` | Add DELETE endpoint |
+| `api_patch()` | Add PATCH endpoint |
+| `api_run()` | Start the API server |
+| `parse_plumber_file()` | Load annotation-based API from file |
+
+# Input Types and Methods
+
+## GET Requests
+
+GET requests receive data through query parameters:
+
+```{r get-request}
+library(plumber2)
+
+api() |>
+  api_get("/search", function(query, limit = 10) {
+    list(
+      query = query,
+      limit = as.integer(limit),
+      results = paste("Searching for:", query)
+    )
+  })
+
+# Access: http://localhost:8080/search?query=data&limit=20
+```
+
+## POST Requests
+
+POST requests typically receive data in the request body:
+
+```{r post-request}
+api() |>
+  api_post("/create", function(name, age, email) {
+    list(
+      status = "created",
+      user = list(
+        name = name,
+        age = as.integer(age),
+        email = email
+      )
+    )
+  })
+
+# Send JSON body: {"name": "Alice", "age": 30, "email": "alice@example.com"}
+```
+
+## Path Parameters
+
+Extract variables from the URL path:
+
+```{r path-params}
+api() |>
+  api_get("/users/{id}", function(id) {
+    list(
+      user_id = id,
+      name = paste("User", id)
+    )
+  })
+
+# Access: http://localhost:8080/users/123
+```
+
+## Request Object Access
+
+Access the full request object for headers, cookies, body:
+
+```{r request-object}
+api() |>
+  api_post("/upload", function(req) {
+    list(
+      content_type = req$CONTENT_TYPE,
+      content_length = req$CONTENT_LENGTH,
+      headers = names(req),
+      body_size = length(req$postBody)
+    )
+  })
+```
+
+## Parameter Type Validation
+
+Specify parameter types and validation:
+
+```{r param-types}
+api() |>
+  api_get("/validate", function(
+    age = numeric(), # Must be numeric
+    name = character(), # Must be character
+    active = logical() # Must be logical/boolean
+  ) {
+    list(
+      age = age,
+      name = name,
+      active = active
+    )
+  })
+```
+
+# Handlers
+
+## What are Handlers?
+
+Handlers are R functions that execute when an incoming HTTP request matches their specified route. They form the core of your API's functionality, translating HTTP requests into R code execution.
+
+**Key characteristics:**
+- Standard R functions annotated with HTTP method decorators (`@get`, `@post`, etc.)
+- Automatically receive parsed input from various sources (path, query, body, headers)
+- Return values are automatically serialized to HTTP responses
+- Can access special objects (`req`, `res`) for advanced control
+
+## Handler Input Arguments
+
+Handlers can receive several special arguments that provide access to request data:
+
+| Argument | Type | Description |
+|----------|------|-------------|
+| `req` or `request` | Request object | Full HTTP request with headers, cookies, environment |
+| `res` or `response` | Response object | Control response headers, status codes |
+| Path parameters | Various | Dynamic values extracted from URL path using `<param>` syntax |
+| `query` | List | Query string parameters (annotation-based) |
+| Function parameters | Various | Mapped from query string (functional) or body (POST) |
+
+**Important differences between functional and annotation approaches:**
+
+- **Functional API (`api_get()`, `api_post()`, etc.)**:
+  - Query parameters map directly to function arguments
+  - Example: `function(name, age)` receives `?name=Alice&age=30`
+
+- **Annotation-based API (`#* @get`, `#* @post`, etc.)**:
+  - Path parameters use `<param>` syntax: `@get /users/<id>`
+  - Query parameters require `query` object: `function(query)` then access `query$name`
+  - Use `@query` annotations to document query parameters
+  - Body parameters map directly to function arguments: `function(name, age)`
+
+## Example 1: Basic Handler
+
+### Functional Approach
+```{r handler-basic-func}
+library(plumber2)
+
+api() |>
+  api_get("/hello", function() {
+    "hello world"
+  })
+```
+
+### Annotation Approach
+```{r handler-basic-annot}
+#* Return hello world
+#* @get /hello
+function() {
+  "hello world"
+}
+```
+
+**How to test:**
+```bash
+curl http://localhost:8080/hello
+# Output: ["hello world"]
+```
+
+## Example 2: Path Parameters
+
+Extract dynamic values from the URL path using `<param>` syntax.
+
+### Functional Approach
+```{r handler-path-func}
+api() |>
+  api_get("/users/{id}", function(id) {
+    list(
+      user_id = id,
+      name = paste("User", id)
+    )
+  })
+```
+
+### Annotation Approach
+```{r handler-path-annot}
+#* Lookup a user by ID
+#* @get /users/<id>
+function(id) {
+  list(
+    user_id = id,
+    name = paste("User", id)
+  )
+}
+```
+
+**How to test:**
+```bash
+curl http://localhost:8080/users/123
+# Output: {"user_id":["123"],"name":["User 123"]}
+```
+
+**Multiple path parameters:**
+```{r handler-multi-path}
+#* Calculate sum using path parameters
+#* @get /sum/<x>/<y>
+#* @param x The first number
+#* @param y The second number
+function(x, y) {
+  list(result = as.numeric(x) + as.numeric(y))
+}
+
+# Test: curl http://localhost:8080/sum/5/10
+# Output: {"result":[15]}
+```
+
+## Example 3: Request Object Access
+
+Access headers, HTTP method, path, and other request metadata.
+
+### Functional Approach
+```{r handler-request-func}
+api() |>
+  api_get("/request-info", function(req) {
+    list(
+      method = req$REQUEST_METHOD,
+      path = req$PATH_INFO,
+      user_agent = req$HTTP_USER_AGENT,
+      all_headers = names(req)
+    )
+  })
+```
+
+### Annotation Approach
+```{r handler-request-annot}
+#* Get request information
+#* @get /request-info
+function(req) {
+  list(
+    method = req$REQUEST_METHOD,
+    path = req$PATH_INFO,
+    user_agent = req$HTTP_USER_AGENT,
+    all_headers = names(req)
+  )
+}
+```
+
+**How to test:**
+```bash
+curl http://localhost:8080/request-info
+# Output: {"method":"GET","path":"/request-info","user_agent":"curl/...","all_headers":[...]}
+```
+
+## Example 4: Response Object (Custom Headers & Status)
+
+Control HTTP status codes and response headers.
+
+### Functional Approach
+```{r handler-response-func}
+api() |>
+  api_get("/custom-response", function(res) {
+    res$setHeader("X-Custom-Header", "MyValue")
+    res$status <- 201
+    list(message = "Created with custom headers")
+  })
+```
+
+### Annotation Approach
+```{r handler-response-annot}
+#* Custom response with headers
+#* @get /custom-response
+function(res) {
+  res$setHeader("X-Custom-Header", "MyValue")
+  res$status <- 201
+  list(message = "Created with custom headers")
+}
+```
+
+**How to test:**
+```bash
+curl -v http://localhost:8080/custom-response
+# Status: 201
+# Header: X-Custom-Header: MyValue
+# Body: {"message":"Created with custom headers"}
+```
+
+## Example 5: Query Parameters
+
+Access URL query string parameters using the `query` object.
+
+### Functional Approach
+```{r handler-query-func}
+api() |>
+  api_get("/search", function(q, limit = "10", offset = "0") {
+    list(
+      search_term = q,
+      limit = as.integer(limit),
+      offset = as.integer(offset)
+    )
+  })
+```
+
+### Annotation Approach
+```{r handler-query-annot}
+#* Search with query parameters
+#* @get /search
+#* @query q Search term
+#* @query limit Number of results (default 10)
+#* @query offset Result offset (default 0)
+function(query) {
+  q <- query$q %||% ""
+  limit <- query$limit %||% "10"
+  offset <- query$offset %||% "0"
+
+  list(
+    search_term = q,
+    limit = as.integer(limit),
+    offset = as.integer(offset)
+  )
+}
+```
+
+**How to test:**
+```bash
+curl 'http://localhost:8080/search?q=test&limit=20&offset=5'
+# Output: {"search_term":["test"],"limit":[20],"offset":[5]}
+```
+
+**Note:** In annotation-based APIs, query parameters come through the `query` object. Use `%||%` (or equivalent) to provide defaults.
+
+## Example 6: POST with Body Parameters
+
+Receive data from POST request body (JSON format).
+
+### Functional Approach
+```{r handler-post-func}
+api() |>
+  api_post("/users", function(name, email, age) {
+    list(
+      status = "created",
+      user = list(
+        name = name,
+        email = email,
+        age = as.integer(age)
+      )
+    )
+  })
+```
+
+### Annotation Approach
+```{r handler-post-annot}
+#* Create a new user
+#* @post /users
+function(name, email, age) {
+  list(
+    status = "created",
+    user = list(
+      name = name,
+      email = email,
+      age = as.integer(age)
+    )
+  )
+}
+```
+
+**How to test:**
+```bash
+curl -X POST http://localhost:8080/users \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Alice","email":"alice@example.com","age":30}'
+# Output: {"status":"created","user":{"name":"Alice","email":"alice@example.com","age":30}}
+```
+
+## Example 7: Combined Inputs
+
+Combine path parameters, query parameters, body, request, and response objects.
+
+### Functional Approach
+```{r handler-combined-func}
+api() |>
+  api_post("/items/{category}", function(category, priority = "1", name, price, req, res) {
+    res$setHeader("X-Processed-By", "plumber2")
+
+    list(
+      category = category,
+      priority = as.integer(priority),
+      item = list(
+        name = name,
+        price = as.numeric(price)
+      ),
+      user_agent = req$HTTP_USER_AGENT,
+      timestamp = as.character(Sys.time())
+    )
+  })
+```
+
+### Annotation Approach
+```{r handler-combined-annot}
+#* Combined inputs: path, query, body, req, res
+#* @post /items/<category>
+#* @query priority Priority level (default 1)
+function(category, query, name, price, req, res) {
+  priority <- query$priority %||% "1"
+  res$setHeader("X-Processed-By", "plumber2")
+
+  list(
+    category = category,
+    priority = as.integer(priority),
+    item = list(
+      name = name,
+      price = as.numeric(price)
+    ),
+    user_agent = req$HTTP_USER_AGENT,
+    timestamp = as.character(Sys.time())
+  )
+}
+```
+
+**How to test:**
+```bash
+curl -X POST 'http://localhost:8080/items/electronics?priority=5' \
+  -H 'Content-Type: application/json' \
+  -d '{"name":"Laptop","price":999}'
+# Output: {"category":["electronics"],"priority":[5],"item":{"name":["Laptop"],"price":[999]},...}
+```
+
+## Example 8: Validation with Error Handling
+
+Validate inputs and return errors when validation fails.
+
+### Functional Approach
+```{r handler-validation-func}
+api() |>
+  api_post("/validate", function(email, age) {
+    if (!grepl("@", email)) {
+      stop("Invalid email format")
+    }
+
+    age_num <- as.numeric(age)
+    if (is.na(age_num) || age_num < 0 || age_num > 150) {
+      stop("Invalid age value")
+    }
+
+    list(email = email, age = age_num, valid = TRUE)
+  })
+```
+
+### Annotation Approach
+```{r handler-validation-annot}
+#* Validate email and age
+#* @post /validate
+function(email, age) {
+  if (!grepl("@", email)) {
+    stop("Invalid email format")
+  }
+
+  age_num <- as.numeric(age)
+  if (is.na(age_num) || age_num < 0 || age_num > 150) {
+    stop("Invalid age value")
+  }
+
+  list(email = email, age = age_num, valid = TRUE)
+}
+```
+
+**How to test (valid):**
+```bash
+curl -X POST http://localhost:8080/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"test@example.com","age":25}'
+# Output: {"email":"test@example.com","age":25,"valid":true}
+```
+
+**How to test (invalid):**
+```bash
+curl -X POST http://localhost:8080/validate \
+  -H 'Content-Type: application/json' \
+  -d '{"email":"invalid","age":25}'
+# Output: {"error":"500 - Internal server error","message":"Invalid email format"}
+```
+
+## Example 9: Type Casting with Annotations
+
+Specify parameter types for automatic validation and conversion. Use `@query` or `@param` with type annotations.
+
+**Supported types:** `logical`, `boolean`, `numeric`, `double`, `integer`, `character`, `string`, `date`
+
+### Annotation Approach (Path Parameters)
+```{r handler-types-path}
+#* Calculate sum with typed path parameters
+#* @get /calc/<x>/<y>
+#* @param x:numeric The first number
+#* @param y:numeric The second number
+function(x, y) {
+  x_num <- as.numeric(x)
+  y_num <- as.numeric(y)
+  list(x = x_num, y = y_num, sum = x_num + y_num)
+}
+
+# Test: curl http://localhost:8080/calc/10.5/20.3
+# Output: {"x":[10.5],"y":[20.3],"sum":[30.8]}
+```
+
+### Annotation Approach (Query Parameters)
+```{r handler-types-query}
+#* Calculate with typed query parameters
+#* @get /calculate
+#* @query x:numeric The first number
+#* @query y:numeric The second number
+#* @query round:logical Whether to round result
+function(query) {
+  x <- as.numeric(query$x %||% "0")
+  y <- as.numeric(query$y %||% "0")
+  round_it <- as.logical(query$round %||% "FALSE")
+
+  result <- x + y
+  if (round_it) {
+    result <- round(result)
+  }
+  list(x = x, y = y, result = result, rounded = round_it)
+}
+
+# Test: curl 'http://localhost:8080/calculate?x=10.5&y=20.3&round=true'
+# Output: {"x":[10.5],"y":[20.3],"result":[31],"rounded":[true]}
+```
+
+## Example 10: Required Parameters
+
+Mark parameters as required using `*` after the type.
+
+### Annotation Approach (Path Parameters)
+```{r handler-required-path}
+#* Safe calculator with required path parameters
+#* @get /safe-calc/<a>/<b>
+#* @param a:numeric* First number (required)
+#* @param b:numeric* Second number (required)
+function(a, b) {
+  a_num <- as.numeric(a)
+  b_num <- as.numeric(b)
+  list(a = a_num, b = b_num, sum = a_num + b_num)
+}
+
+# Test: curl http://localhost:8080/safe-calc/10/5
+# Output: {"a":[10],"b":[5],"sum":[15]}
+```
+
+### Annotation Approach (Query Parameters)
+```{r handler-required-query}
+#* Calculator with required query parameters
+#* @get /calc-query
+#* @query a:numeric* First number (required)
+#* @query b:numeric* Second number (required)
+#* @query operation:string Operation (add, subtract, multiply, divide)
+function(query) {
+  # Extract and validate required parameters
+  if (is.null(query$a) || is.null(query$b)) {
+    stop("Parameters 'a' and 'b' are required")
+  }
+
+  a <- as.numeric(query$a)
+  b <- as.numeric(query$b)
+  operation <- query$operation %||% "add"
+
+  result <- switch(as.character(operation),
+    "add" = a + b,
+    "subtract" = a - b,
+    "multiply" = a * b,
+    "divide" = if (b != 0) a / b else NA,
+    stop("Unknown operation")
+  )
+  list(a = a, b = b, operation = operation, result = result)
+}
+
+# Test addition:
+# curl 'http://localhost:8080/calc-query?a=10&b=5&operation=add'
+# Output: {"a":[10],"b":[5],"operation":["add"],"result":[15]}
+
+# Test multiplication:
+# curl 'http://localhost:8080/calc-query?a=10&b=5&operation=multiply'
+# Output: {"a":[10],"b":[5],"operation":["multiply"],"result":[50]}
+```
+
+## Handler Best Practices
+
+### 1. Use Appropriate HTTP Methods
+
+Follow REST conventions:
+- **GET**: Retrieve data (no side effects, idempotent)
+- **POST**: Create new resources
+- **PUT**: Update entire resources
+- **PATCH**: Partial updates
+- **DELETE**: Remove resources
+
+### 2. Always Validate Inputs
+
+```{r handler-best-validate}
+api() |>
+  api_post("/create", function(email, age) {
+    # Validate email format
+    if (!grepl("^[^@]+@[^@]+\\.[^@]+$", email)) {
+      stop("Invalid email format")
+    }
+
+    # Validate age range
+    age_num <- as.numeric(age)
+    if (is.na(age_num) || age_num < 0 || age_num > 150) {
+      stop("Age must be between 0 and 150")
+    }
+
+    list(email = email, age = age_num, status = "validated")
+  })
+```
+
+### 3. Use Type Hints for Automatic Validation
+
+```{r handler-best-types}
+#* Use type annotations instead of manual casting
+#* @get /calculate
+#* @param x:numeric* Required number
+#* @param y:numeric* Required number
+function(x, y) {
+  # x and y are already numeric
+  list(sum = x + y, product = x * y)
+}
+```
+
+### 4. Return Meaningful Error Responses
+
+```{r handler-best-errors}
+api() |>
+  api_post("/process", function(data, res) {
+    tryCatch({
+      # Process data
+      result <- some_processing(data)
+
+      # Success response
+      res$status <- 200
+      list(success = TRUE, result = result)
+    }, error = function(e) {
+      # Error response
+      res$status <- 400
+      list(
+        success = FALSE,
+        error = "Processing failed",
+        details = as.character(e)
+      )
+    })
+  })
+```
+
+### 5. Document Your Endpoints
+
+Use comments to describe what each endpoint does:
+
+```{r handler-best-docs}
+#* Calculate the sum of two numbers
+#*
+#* This endpoint performs addition on two numeric values.
+#*
+#* @param a:numeric* The first number
+#* @param b:numeric* The second number
+#* @return A JSON object with the sum
+#* @get /add
+function(a, b) {
+  list(a = a, b = b, sum = a + b)
+}
+```
+
+# Output Formats and Serializers
+
+## Available Serializers
+
+plumber2 supports many output formats out of the box:
+
+```{r list-serializers}
+library(plumber2)
+show_registered_serializers()
+```
+
+| Serializer | MIME Type | Use Case |
+|------------|-----------|----------|
+| `json` | application/json | Default; structured data |
+| `csv` | text/csv | Tabular data, data frames |
+| `text` | text/plain | Plain text responses |
+| `html` | text/html | HTML content |
+| `xml` | text/xml | XML documents |
+| `rds` | application/rds | R-specific binary format |
+| `png` | image/png | Plots and graphics |
+| `pdf` | application/pdf | PDF documents |
+| `yaml` | text/yaml | YAML format |
+| `feather` | application/vnd.apache.arrow.file | Arrow format |
+
+## JSON Output (Default)
+
+```{r json-output}
+api() |>
+  api_get("/data", function() {
+    list(
+      status = "success",
+      data = data.frame(
+        id = 1:3,
+        value = c(10, 20, 30)
+      )
+    )
+  })
+# Returns JSON by default
+```
+
+## CSV Output
+
+```{r csv-output}
+api() |>
+  api_get("/export", function() {
+    data.frame(
+      id = 1:3,
+      name = c("Alice", "Bob", "Charlie"),
+      score = c(95, 87, 92)
+    )
+  }, serializers = get_serializers("csv"))
+# Returns CSV format
+```
+
+## Plain Text Output
+
+```{r text-output}
+api() |>
+  api_get("/status", function() {
+    "Server is running normally"
+  }, serializers = get_serializers("text"))
+# Returns plain text
+```
+
+## Image Output
+
+```{r image-output}
+api() |>
+  api_get("/plot", function() {
+    # Create plot
+    plot(1:10, 1:10, main = "Simple Plot")
+  }, serializers = get_serializers("png"))
+# Returns PNG image
+```
+
+## Multiple Serializers
+
+Allow clients to choose format via Accept header:
+
+```{r multiple-serializers}
+api() |>
+  api_get("/flexible", function() {
+    data.frame(x = 1:5, y = 1:5)
+  }, serializers = get_serializers(c("json", "csv", "xml")))
+
+# Client specifies: Accept: text/csv
+```
+
+## Custom Serializers
+
+Register custom serialization logic:
+
+```{r custom-serializer}
+# Define custom serializer
+my_serializer <- function(x) {
+  paste("CUSTOM:", as.character(x), collapse = ", ")
+}
+
+# Register it
+register_serializer(
+  name = "custom",
+  mime_type = "text/custom",
+  serializer = my_serializer
+)
+
+# Use in endpoint
+api() |>
+  api_get("/custom", function() {
+    c("a", "b", "c")
+  }, serializers = get_serializers("custom"))
+```
+
+# Hosting the API
+
+## Local Development
+
+```{r local-run}
+library(plumber2)
+
+api() |>
+  api_get("/hello", function() {
+    list(message = "Hello")
+  }) |>
+  api_run(
+    host = "127.0.0.1", # localhost only
+    port = 8080,
+    showcase = TRUE # Opens browser with API docs
+  )
+```
+
+**Access:** http://127.0.0.1:8080/hello
+
+## Network Access
+
+Allow connections from other machines:
+
+```{r network-run}
+api() |>
+  api_get("/hello", function() {
+    list(message = "Hello")
+  }) |>
+  api_run(
+    host = "0.0.0.0", # Accept from any IP
+    port = 8080
+  )
+```
+
+**Access:** http://<your-ip>:8080/hello
+
+## RStudio Server
+
+On RStudio Server, use the proxied URL:
+
+```{r rstudio-server}
+# Run on specific port
+api() |> api_run(port = 8080)
+
+# Access at:
+# https://<rstudio-server>/p/8080/
+```
+
+## AWS Deployment Options
+
+### 1. EC2 Instance
+
+```bash
+# Install R and plumber2
+sudo R -e "install.packages('plumber2')"
+
+# Run in background
+nohup R -e "library(plumber2); parse_plumber_file('api.R') |> api_run(host='0.0.0.0', port=8080)" &
+```
+
+### 2. AWS Lambda
+
+Use `lambdr` package for serverless deployment:
+
+```{r lambda}
+# Install lambdr
+install.packages("lambdr")
+
+# api.R
+library(plumber2)
+library(lambdr)
+
+api <- api() |>
+  api_get("/hello", function(name = "World") {
+    list(greeting = paste("Hello,", name))
+  })
+
+lambdr::start_lambda(api)
+```
+
+### 3. Docker Container
+
+```dockerfile
+# Dockerfile
+FROM rocker/r-ver:4.5.1
+
+RUN R -e "install.packages('plumber2')"
+
+COPY api.R /app/api.R
+WORKDIR /app
+
+EXPOSE 8080
+
+CMD ["R", "-e", "plumber2::parse_plumber_file('api.R') |> plumber2::api_run(host='0.0.0.0', port=8080)"]
+```
+
+```bash
+# Build and run
+docker build -t my-plumber-api .
+docker run -p 8080:8080 my-plumber-api
+```
+
+### 4. Elastic Beanstalk
+
+Deploy Docker container to Elastic Beanstalk for managed hosting.
+
+## Production Considerations
+
+```{r production}
+api() |>
+  api_get("/data", function() {
+    # Your logic
+  }) |>
+  api_run(
+    host = "0.0.0.0",
+    port = 8080,
+    showcase = FALSE, # Disable in production
+    silent = TRUE # Reduce logging
+  )
+```
+
+Use reverse proxy (Nginx) for SSL, load balancing:
+
+```nginx
+# nginx.conf
+server {
+  listen 80;
+  server_name api.example.com;
+
+  location / {
+    proxy_pass http://localhost:8080;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+  }
+}
+```
+
+# Configuration with _server.yml
+
+The `_server.yml` file allows centralized configuration of your API.
+
+## Basic Structure
+
+```yaml
+# _server.yml
+host: 0.0.0.0
+port: 8080
+
+# API options
+docType: rapidoc        # API documentation style
+docPath: __docs__       # Docs endpoint path
+
+# Request handling
+maxRequestSize: 10000000  # 10MB limit
+compressionLimit: 1000    # Compress responses > 1KB
+
+# Security
+sharedSecret: "your-secret-key"
+
+# Logging
+logger:
+  type: console
+  level: info
+```
+
+## Loading Configuration
+
+```{r load-config}
+library(plumber2)
+
+# Load from _server.yml
+api() |>
+  api_get("/hello", function() {
+    list(message = "Hello")
+  }) |>
+  api_run() # Automatically reads _server.yml
+```
+
+## Environment-Specific Configuration
+
+```yaml
+# _server.yml
+default:
+  host: 127.0.0.1
+  port: 8080
+
+production:
+  host: 0.0.0.0
+  port: 80
+  showcase: false
+
+development:
+  host: 127.0.0.1
+  port: 8080
+  showcase: true
+```
+
+```{r env-config}
+# Set environment
+Sys.setenv(R_CONFIG_ACTIVE = "production")
+
+# Loads production settings
+api() |> api_run()
+```
+
+## Advanced Options
+
+```yaml
+# _server.yml
+host: 0.0.0.0
+port: 8080
+
+# CORS settings
+cors:
+  enabled: true
+  origin: "*"
+  methods: ["GET", "POST", "PUT", "DELETE"]
+
+# Rate limiting
+rateLimit:
+  enabled: true
+  requests: 100
+  window: 60  # seconds
+
+# Caching
+cache:
+  enabled: true
+  ttl: 300  # seconds
+
+# Async execution
+async:
+  enabled: true
+  evaluator: mirai
+```
+
+# Complete Working Example
+
+Here's a comprehensive example demonstrating different input types and output formats:
+
+```{r complete-example}
+library(plumber2)
+
+# Create API
+demo_api <- api()
+
+# Add multiple endpoints with different methods and outputs
+demo_api |>
+  # 1. Simple GET with query parameter (JSON response)
+  api_get("/hello", function(name = "World") {
+    list(
+      greeting = paste("Hello,", name),
+      timestamp = Sys.time()
+    )
+  }) |>
+  # 2. GET with path parameter
+  api_get("/users/{id}", function(id) {
+    list(
+      user_id = as.integer(id),
+      username = paste("user", id, sep = "_"),
+      status = "active"
+    )
+  }) |>
+  # 3. POST with body parameters
+  api_post("/calculate", function(x, y, operation = "add") {
+    x_num <- as.numeric(x)
+    y_num <- as.numeric(y)
+
+    result <- switch(operation,
+      "add" = x_num + y_num,
+      "subtract" = x_num - y_num,
+      "multiply" = x_num * y_num,
+      "divide" = x_num / y_num,
+      NA
+    )
+
+    list(
+      operation = operation,
+      x = x_num,
+      y = y_num,
+      result = result
+    )
+  }) |>
+  # 4. Plain text response
+  api_get("/status", function() {
+    paste(
+      "Server Status: Running",
+      "Time:", Sys.time(),
+      "Memory:", format(object.size(ls()), units = "MB"),
+      sep = "\n"
+    )
+  }, serializers = get_serializers("text")) |>
+  # 5. CSV export
+  api_get("/data/csv", function(rows = 10) {
+    data.frame(
+      id = 1:as.integer(rows),
+      name = paste("Name", 1:as.integer(rows)),
+      value = rnorm(as.integer(rows), mean = 100, sd = 15),
+      category = sample(c("A", "B", "C"), as.integer(rows), replace = TRUE)
+    )
+  }, serializers = get_serializers("csv")) |>
+  # 6. JSON data export
+  api_get("/data/json", function(rows = 10) {
+    data.frame(
+      id = 1:as.integer(rows),
+      name = paste("Name", 1:as.integer(rows)),
+      value = rnorm(as.integer(rows), mean = 100, sd = 15),
+      category = sample(c("A", "B", "C"), as.integer(rows), replace = TRUE)
+    )
+  }) |>
+  # 7. Image response (plot)
+  api_get("/plot", function(n = 10) {
+    n <- as.integer(n)
+    x <- 1:n
+    y <- rnorm(n, mean = x, sd = 5)
+
+    plot(x, y,
+      main = "Random Data Plot",
+      xlab = "X Values",
+      ylab = "Y Values",
+      pch = 19,
+      col = "steelblue",
+      cex = 1.5
+    )
+    lines(x, x, col = "red", lwd = 2)
+  }, serializers = get_serializers("png")) |>
+  # 8. Multiple output formats (client chooses via Accept header)
+  api_get("/flexible", function() {
+    data.frame(
+      metric = c("CPU", "Memory", "Disk"),
+      usage = c(45.2, 67.8, 23.5),
+      unit = c("%", "%", "%")
+    )
+  }, serializers = get_serializers(c("json", "csv", "xml"))) |>
+  # 9. Access request headers
+  api_get("/headers", function(req) {
+    list(
+      user_agent = req$HTTP_USER_AGENT,
+      accept = req$HTTP_ACCEPT,
+      host = req$HTTP_HOST,
+      all_headers = names(req)
+    )
+  }) |>
+  # 10. Error handling
+  api_get("/divide", function(a, b) {
+    a_num <- as.numeric(a)
+    b_num <- as.numeric(b)
+
+    if (b_num == 0) {
+      # Return error response
+      list(
+        error = TRUE,
+        message = "Division by zero is not allowed"
+      )
+    } else {
+      list(
+        error = FALSE,
+        result = a_num / b_num
+      )
+    }
+  })
+
+# Print endpoint summary
+cat("API created with the following endpoints:\n")
+cat("\nGET endpoints:\n")
+cat("  /hello?name=<name>           - Greeting with name\n")
+cat("  /users/{id}                  - Get user by ID\n")
+cat("  /status                      - Server status (plain text)\n")
+cat("  /data/csv?rows=<n>           - Export data as CSV\n")
+cat("  /data/json?rows=<n>          - Export data as JSON\n")
+cat("  /plot?n=<number>             - Generate plot (PNG)\n")
+cat("  /flexible                    - Multiple formats (JSON/CSV/XML)\n")
+cat("  /headers                     - Show request headers\n")
+cat("  /divide?a=<num>&b=<num>      - Division with error handling\n")
+cat("\nPOST endpoints:\n")
+cat("  /calculate                   - Calculate operations\n")
+cat("    Body: {\"x\": 10, \"y\": 5, \"operation\": \"add\"}\n")
+cat("\n")
+
+# Run the server (uncomment to start)
+# demo_api |> api_run(port = 8080, showcase = TRUE)
+```
+
+## Testing the API
+
+Once running, test with curl or R:
+
+```{r test-api, eval=FALSE}
+library(httr2)
+
+# Test 1: Simple GET
+request("http://localhost:8080/hello") |>
+  req_url_query(name = "Alice") |>
+  req_perform() |>
+  resp_body_json()
+
+# Test 2: POST request
+request("http://localhost:8080/calculate") |>
+  req_body_json(list(x = 10, y = 5, operation = "multiply")) |>
+  req_perform() |>
+  resp_body_json()
+
+# Test 3: Get CSV
+response <- request("http://localhost:8080/data/csv") |>
+  req_url_query(rows = 5) |>
+  req_perform()
+
+df <- response |>
+  resp_body_string() |>
+  read.csv(text = _)
+print(df)
+
+# Test 4: Download plot
+request("http://localhost:8080/plot") |>
+  req_url_query(n = 20) |>
+  req_perform() |>
+  resp_body_raw() |>
+  writeBin("plot.png")
+```
+
+Or with curl:
+
+```bash
+# Simple GET
+curl "http://localhost:8080/hello?name=Alice"
+
+# POST with JSON
+curl -X POST http://localhost:8080/calculate \
+  -H "Content-Type: application/json" \
+  -d '{"x": 10, "y": 5, "operation": "add"}'
+
+# Get CSV
+curl "http://localhost:8080/data/csv?rows=5"
+
+# Download plot
+curl "http://localhost:8080/plot?n=20" --output plot.png
+
+# Flexible format (CSV via Accept header)
+curl "http://localhost:8080/flexible" \
+  -H "Accept: text/csv"
+```
+
+# Best Practices
+
+## 1. Error Handling
+
+```{r error-handling}
+api() |>
+  api_get("/safe", function(x) {
+    tryCatch(
+      {
+        result <- as.numeric(x) * 2
+        list(success = TRUE, result = result)
+      },
+      error = function(e) {
+        list(
+          success = FALSE,
+          error = as.character(e)
+        )
+      }
+    )
+  })
+```
+
+## 2. Authentication
+
+```{r auth}
+api() |>
+  api_auth(function(req) {
+    token <- req$HTTP_AUTHORIZATION
+    if (is.null(token) || token != "Bearer secret123") {
+      return(FALSE)
+    }
+    TRUE
+  }) |>
+  api_get("/protected", function() {
+    list(message = "Access granted")
+  })
+```
+
+## 3. Request Validation
+
+```{r validation}
+api() |>
+  api_post("/submit", function(email, age) {
+    # Validate inputs
+    if (!grepl("@", email)) {
+      return(list(
+        error = TRUE,
+        message = "Invalid email format"
+      ))
+    }
+
+    age_num <- as.numeric(age)
+    if (is.na(age_num) || age_num < 0 || age_num > 150) {
+      return(list(
+        error = TRUE,
+        message = "Invalid age"
+      ))
+    }
+
+    list(
+      error = FALSE,
+      message = "Submission accepted",
+      data = list(email = email, age = age_num)
+    )
+  })
+```
+
+## 4. Logging
+
+```{r logging}
+api() |>
+  api_logger(function(req, res) {
+    cat(sprintf(
+      "[%s] %s %s - %s\n",
+      Sys.time(),
+      req$REQUEST_METHOD,
+      req$PATH_INFO,
+      res$status
+    ))
+  }) |>
+  api_get("/logged", function() {
+    list(message = "This request is logged")
+  })
+```
+
+## 5. CORS for Web Apps
+
+```{r cors}
+api() |>
+  api_security_cors(
+    origins = c("http://localhost:3000", "https://myapp.com"),
+    methods = c("GET", "POST", "PUT", "DELETE"),
+    headers = c("Content-Type", "Authorization")
+  ) |>
+  api_get("/data", function() {
+    list(data = "Available to web apps")
+  })
+```
+
+# Summary
+
+| Topic | Key Points |
+|-------|------------|
+| **Purpose** | Create REST APIs to expose R functions as web services |
+| **vs Shiny** | APIs for programmatic access; Shiny for interactive UIs |
+| **Creation** | Functional (`api_get()`) or annotation-based (`#* @get`) |
+| **Methods** | GET, POST, PUT, DELETE, PATCH |
+| **Inputs** | Query params, path params, body, headers |
+| **Outputs** | JSON, CSV, text, XML, images, and more |
+| **Hosting** | Local, RStudio Server, EC2, Lambda, Docker |
+| **Config** | `_server.yml` for centralized settings |
+| **Production** | Add auth, validation, logging, CORS, error handling |
+
+# Resources
+
+- **Official Documentation:** https://plumber2.posit.co/
+- **Vignettes:** https://plumber2.posit.co/articles/
+- **GitHub:** https://github.com/rstudio/plumber2
+- **Original plumber:** For comparison and migration guides
