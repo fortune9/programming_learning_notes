@@ -371,6 +371,188 @@ https://docs.posit.co/shiny-server/.
     a Dockerfile.
     
 
+## shinyjs: Dynamic UI Control
+
+### When to Use shinyjs
+
+Use `shinyjs` when you need to:
+- **Enable/disable** input controls dynamically
+- **Show/hide** UI elements without conditional panels
+- **Run custom JavaScript** from R code
+- **Reset** form inputs
+- **Add/remove CSS classes** dynamically
+
+### Setup
+
+```r
+library(shinyjs)
+
+ui <- fluidPage(
+  useShinyjs(),  # Add this to enable shinyjs
+  # ... rest of UI
+)
+```
+
+### Common Patterns
+
+#### Enable/Disable Controls
+
+```r
+# In UI: define inputs with inputId
+selectInput(inputId = "provider", label = "Provider:", choices = c("gemini", "openai"))
+selectInput(inputId = "model", label = "Model:", choices = c("model1", "model2"))
+actionButton(inputId = "submit_button", label = "Submit")
+
+# In server: disable controls after user clicks submit (uses the inputId)
+observeEvent(input$submit, {
+  disable("provider")       # Grays out the provider dropdown
+  disable("model")          # Grays out the model dropdown
+  disable("submit_button")  # Grays out the submit button
+})
+
+# Re-enable when resetting
+observeEvent(input$restart, {
+  enable("provider")       # Makes provider dropdown clickable
+  enable("model")          # Makes model dropdown clickable
+  enable("submit_button")  # Makes submit button clickable
+})
+```
+
+**Use case**: Prevent users from changing settings while processing, then allow changes after reset.
+**Note**: `enable()` and `disable()` work with **input element IDs** (like `selectInput`, `textInput`, `actionButton`).
+
+#### Show/Hide Elements
+
+```r
+# In UI: give element an ID (can be any element - button, div, text, etc.)
+actionButton(inputId = "restart", label = "Restart", style = "display: none;")
+# Or: div(id = "results_section", ...)
+
+# In server: show it dynamically (uses the element's ID or inputId)
+observeEvent(input$submit, {
+  show("restart")  # Makes the restart button visible
+
+  # Alternative using JavaScript for more control:
+  runjs("document.getElementById('restart').style.display = 'block';")
+})
+
+# Hide it again
+observeEvent(input$restart, {
+  hide("restart")  # Makes the restart button invisible
+
+  # Alternative: runjs("document.getElementById('restart').style.display = 'none';")
+})
+```
+
+**Use case**: Show "Restart" button only after initial setup is complete.
+**Note**: `show()` and `hide()` work with **any element ID** (inputs, divs, text, images, etc.), not just inputs.
+
+#### Key Difference: enable() vs show()
+
+| Function | What it does | Element state |
+|----------|-------------|---------------|
+| `disable(id)` | Grays out input, makes it **unclickable** | Still **visible** but not interactive |
+| `enable(id)` | Makes input **clickable** again | Visible and interactive |
+| `hide(id)` | Makes element **invisible** | Hidden from view (may still be interactive if shown again) |
+| `show(id)` | Makes element **visible** | Visible (interactivity unchanged) |
+
+**Example scenario**:
+- Use `disable("submit")` when processing - user sees the button but can't click it
+- Use `hide("submit")` when the button shouldn't exist in current state - user doesn't see it at all
+
+#### Reset Form Inputs
+
+```r
+observeEvent(input$clear_form, {
+  reset("form_id")  # Reset all inputs in a form
+})
+```
+
+#### Toggle CSS Classes
+
+```r
+# Add class
+addClass("my_element", "highlight")
+
+# Remove class
+removeClass("my_element", "highlight")
+
+# Toggle class
+toggleClass("my_element", "active")
+```
+
+**Use case**: Visual feedback (highlighting, active states).
+
+#### Run Custom JavaScript
+
+```r
+# Click a button programmatically
+runjs("$('#my_button').click();")
+
+# Scroll to element
+runjs("document.getElementById('results').scrollIntoView();")
+
+# Change element style
+runjs("$('#notification').css('background-color', 'green');")
+```
+
+### Real Example: Model Selection Flow
+
+```r
+# In UI:
+selectInput(inputId = "provider", ...)
+selectInput(inputId = "model", ...)
+actionButton(inputId = "restart", label = "Restart", style = "display: none;")
+
+# In server, after successful model connection:
+disable("provider")    # Gray out provider dropdown (visible but not clickable)
+disable("model")       # Gray out model dropdown (visible but not clickable)
+show("restart")        # Make restart button visible
+
+# When user clicks restart:
+enable("provider")     # Make provider dropdown clickable again
+enable("model")        # Make model dropdown clickable again
+hide("restart")        # Make restart button invisible
+```
+
+### Key Functions Reference
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `enable(id)` | Enable input | `enable("submit_btn")` |
+| `disable(id)` | Disable input | `disable("model")` |
+| `show(id)` | Show element | `show("advanced_options")` |
+| `hide(id)` | Hide element | `hide("loading_spinner")` |
+| `toggle(id)` | Toggle visibility | `toggle("help_text")` |
+| `reset(id)` | Reset form | `reset("user_form")` |
+| `runjs(code)` | Run JavaScript | `runjs("alert('Done!');")` |
+| `addClass(id, class)` | Add CSS class | `addClass("box", "error")` |
+| `removeClass(id, class)` | Remove CSS class | `removeClass("box", "error")` |
+
+### Tips
+
+- Always call `useShinyjs()` in your UI
+- Use element IDs (the `inputId` parameter value) for shinyjs functions
+- `enable()`/`disable()` work on **inputs only** (controls interactivity, element remains visible)
+- `show()`/`hide()` work on **any element** (controls visibility, doesn't affect interactivity)
+- For complex JS, consider `runjs()` instead of multiple shinyjs calls
+- `show()`/`hide()` modifies `display` CSS property - use `runjs()` for other styles
+
+### Quick Decision Guide
+
+**Want to prevent user interaction but keep element visible?**
+→ Use `disable("input_id")` (grays out the control)
+
+**Want to completely hide an element from view?**
+→ Use `hide("element_id")` (removes from display)
+
+**Want to lock settings during processing, then unlock?**
+→ Use `disable()` then `enable()` (shows user what's locked)
+
+**Want to reveal optional sections or buttons?**
+→ Use `show()` and `hide()` (element appears/disappears)
+
+
 ## References
 
 1. Mastering shiny book: https://mastering-shiny.org/
