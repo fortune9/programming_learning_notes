@@ -1,0 +1,473 @@
+---
+title: "ggiraph: Interactive ggplot2 Graphics"
+author: "Tutorial"
+date: "`r Sys.Date()`"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: show
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+# Introduction
+
+## What is ggiraph?
+
+**ggiraph** is an R package that transforms static ggplot2 graphics into interactive visualizations for web browsers. It extends ggplot2 by adding interactivity capabilities such as tooltips, hover effects, click actions, and element selection.
+
+## Main Use Cases
+
+- **Data exploration**: Add tooltips to display detailed information on hover
+- **Presentations**: Create engaging, interactive visualizations for reports and dashboards
+- **Shiny applications**: Enable user interaction with plot elements for filtering and selection
+- **Web-based reports**: Publish interactive graphics in R Markdown documents
+
+## Why Use ggiraph?
+
+- Seamless integration with ggplot2 - minimal code changes required
+- No JavaScript knowledge needed
+- Works in R Markdown, Shiny, and standalone HTML
+- Supports almost all ggplot2 geometries and themes
+- Lightweight and fast rendering
+
+## Prerequisites
+
+- Basic knowledge of R and ggplot2
+- R version 3.5.0 or higher recommended
+- Familiarity with ggplot2 syntax and aesthetics
+
+# Installation & Setup
+
+## Install from CRAN
+
+```{r install-cran, eval=FALSE}
+install.packages("ggiraph")
+```
+
+## Install Development Version
+
+For the latest features and bug fixes:
+
+```{r install-dev, eval=FALSE}
+# Install devtools if not already installed
+install.packages("devtools")
+
+# Install ggiraph from GitHub
+devtools::install_github('davidgohel/ggiraph')
+```
+
+## Load the Package
+
+```{r load-packages}
+library(ggplot2)
+library(ggiraph)
+library(dplyr)  # for data manipulation
+```
+
+## Verify Installation
+
+Create a simple interactive plot to verify the installation:
+
+```{r verify-install}
+# Simple example
+data <- data.frame(
+  x = 1:5,
+  y = 1:5,
+  label = paste("Point", 1:5)
+)
+
+gg <- ggplot(data, aes(x = x, y = y)) +
+  geom_point_interactive(aes(tooltip = label), size = 4) +
+  theme_minimal()
+
+girafe(ggobj = gg)
+```
+
+If you see an interactive plot with tooltips appearing on hover, the installation was successful!
+
+# Key Concepts
+
+## The Three Special Interactive Aesthetics
+
+ggiraph introduces three special aesthetics that add interactivity to ggplot2 graphics:
+
+| Aesthetic | Description | Example Use Case |
+|-----------|-------------|------------------|
+| `tooltip` | Text displayed when hovering over an element | Show detailed data values, labels, or descriptions |
+| `data_id` | Identifier that links elements together | Highlight related elements across multiple plots or layers |
+| `onclick` | JavaScript code executed when element is clicked | Open URLs, trigger custom actions, navigate to external resources |
+
+### How Interactive Aesthetics Work
+
+These aesthetics are added inside the `aes()` function of interactive geometries:
+
+```{r interactive-aesthetics-demo, eval=FALSE}
+geom_point_interactive(aes(
+  x = x_var,
+  y = y_var,
+  tooltip = "Information to display",      # Tooltip text
+  data_id = "unique_identifier",           # Grouping ID
+  onclick = "window.open('http://url')"    # JavaScript action
+))
+```
+
+## Interactive Geometries
+
+ggiraph provides interactive versions of ggplot2 geometries by adding the `_interactive` suffix:
+
+| Standard ggplot2 | ggiraph Interactive | Purpose |
+|------------------|---------------------|---------|
+| `geom_point()` | `geom_point_interactive()` | Interactive scatter plots |
+| `geom_bar()` | `geom_bar_interactive()` | Interactive bar charts |
+| `geom_col()` | `geom_col_interactive()` | Interactive column charts |
+| `geom_line()` | `geom_line_interactive()` | Interactive line plots |
+| `geom_text()` | `geom_text_interactive()` | Interactive text labels |
+| `geom_polygon()` | `geom_polygon_interactive()` | Interactive polygons/maps |
+| `geom_tile()` | `geom_tile_interactive()` | Interactive heatmaps |
+
+## The girafe() Function
+
+The `girafe()` function converts a ggplot object into an interactive graphic:
+
+```{r girafe-concept, eval=FALSE}
+# Basic usage
+girafe(ggobj = your_ggplot_object)
+
+# With customization
+girafe(
+  ggobj = your_ggplot_object,
+  width_svg = 7,      # Width in inches
+  height_svg = 5,     # Height in inches
+  options = list(...)  # Interactive options
+)
+```
+
+# Key Functions and Commands
+
+## Core Functions
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `girafe()` | Create interactive graphic from ggplot object | `girafe(ggobj = p)` |
+| `girafe_options()` | Customize interactive behaviors | `girafe_options(x, opts_hover(...))` |
+| `geom_*_interactive()` | Interactive geometry functions | `geom_point_interactive(aes(tooltip = label))` |
+
+## Customization Functions (opts_* family)
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `opts_tooltip()` | Customize tooltip appearance | `opts_tooltip(opacity = 0.8, css = "...")` |
+| `opts_hover()` | Define hover effects | `opts_hover(css = "fill:red;stroke:black;")` |
+| `opts_selection()` | Control selection behavior | `opts_selection(type = "single", css = "...")` |
+| `opts_zoom()` | Configure zoom capabilities | `opts_zoom(min = 0.5, max = 4)` |
+| `opts_toolbar()` | Show/hide interactive toolbar | `opts_toolbar(position = "topright")` |
+
+## Shiny Integration Functions
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `girafeOutput()` | Create girafe output element in Shiny UI | `girafeOutput("plot1")` |
+| `renderGirafe()` | Render reactive girafe in Shiny server | `renderGirafe({ girafe(...) })` |
+
+# Full Working Examples
+
+## Example 1: Basic Interactive Scatter Plot with Tooltips
+
+```{r example1}
+# Prepare data
+data <- mtcars
+data$carname <- rownames(mtcars)
+
+# Create ggplot with interactive points
+gg_scatter <- ggplot(data, aes(x = wt, y = mpg)) +
+  geom_point_interactive(
+    aes(tooltip = carname, data_id = carname),
+    size = 3,
+    color = "steelblue"
+  ) +
+  labs(
+    title = "Car Weight vs. Fuel Efficiency",
+    x = "Weight (1000 lbs)",
+    y = "Miles per Gallon"
+  ) +
+  theme_minimal()
+
+# Convert to interactive graphic
+girafe(ggobj = gg_scatter)
+```
+
+## Example 2: Color-Coded Plot with Rich Tooltips
+
+```{r example2}
+# Create rich tooltip text
+data$tooltip_text <- paste0(
+  "<b>", data$carname, "</b><br/>",
+  "MPG: ", data$mpg, "<br/>",
+  "Weight: ", data$wt, " (1000 lbs)<br/>",
+  "Cylinders: ", data$cyl
+)
+
+# Create plot with color coding
+gg_color <- ggplot(data, aes(x = wt, y = mpg, color = factor(cyl))) +
+  geom_point_interactive(
+    aes(tooltip = tooltip_text, data_id = carname),
+    size = 4
+  ) +
+  scale_color_brewer(palette = "Set1", name = "Cylinders") +
+  labs(
+    title = "Car Performance by Cylinder Count",
+    x = "Weight (1000 lbs)",
+    y = "Miles per Gallon"
+  ) +
+  theme_minimal()
+
+# Add interactive options
+girafe(ggobj = gg_color)
+```
+
+## Example 3: Interactive Bar Chart with Click Actions
+
+```{r example3}
+# Aggregate data
+cyl_summary <- data %>%
+  group_by(cyl) %>%
+  summarise(
+    avg_mpg = mean(mpg),
+    count = n()
+  ) %>%
+  mutate(
+    tooltip = paste0("Cylinders: ", cyl, "\nAvg MPG: ", round(avg_mpg, 1), "\nCount: ", count),
+    # Create search URL for each cylinder count
+    onclick = paste0("window.open('https://www.google.com/search?q=", cyl, "+cylinder+cars')")
+  )
+
+# Create interactive bar chart
+gg_bar <- ggplot(cyl_summary, aes(x = factor(cyl), y = avg_mpg)) +
+  geom_col_interactive(
+    aes(tooltip = tooltip, onclick = onclick, data_id = cyl),
+    fill = "steelblue"
+  ) +
+  labs(
+    title = "Average MPG by Cylinder Count (Click to Search)",
+    x = "Number of Cylinders",
+    y = "Average MPG"
+  ) +
+  theme_minimal()
+
+girafe(ggobj = gg_bar)
+```
+
+## Example 4: Advanced Customization with Hover and Selection Effects
+
+```{r example4}
+# Create plot with interactive features
+gg_advanced <- ggplot(data, aes(x = hp, y = mpg, size = wt)) +
+  geom_point_interactive(
+    aes(
+      tooltip = carname,
+      data_id = carname,
+      color = factor(cyl)
+    ),
+    alpha = 0.7
+  ) +
+  scale_color_brewer(palette = "Dark2", name = "Cylinders") +
+  scale_size_continuous(name = "Weight", range = c(2, 10)) +
+  labs(
+    title = "Horsepower vs. Efficiency (Hover and Click)",
+    x = "Horsepower",
+    y = "Miles per Gallon"
+  ) +
+  theme_minimal()
+
+# Add extensive customization
+girafe(
+  ggobj = gg_advanced,
+  width_svg = 8,
+  height_svg = 6,
+  options = list(
+    opts_hover(css = "fill:orange;stroke:black;stroke-width:2px;"),
+    opts_selection(
+      type = "multiple",
+      css = "fill:red;stroke:black;stroke-width:3px;"
+    ),
+    opts_tooltip(
+      opacity = 0.9,
+      css = "background-color:white;padding:10px;border-radius:5px;box-shadow:2px 2px 5px gray;"
+    ),
+    opts_zoom(min = 0.5, max = 3),
+    opts_toolbar(position = "topright")
+  )
+)
+```
+
+## Example 5: Multiple Linked Plots with Shared data_id
+
+```{r example5, fig.width=10}
+# Create two plots that share data_id for linked highlighting
+data$tooltip_simple <- paste0(data$carname, "\nMPG: ", data$mpg)
+
+# Plot 1: Weight vs MPG
+p1 <- ggplot(data, aes(x = wt, y = mpg)) +
+  geom_point_interactive(
+    aes(tooltip = tooltip_simple, data_id = carname),
+    size = 3, color = "steelblue"
+  ) +
+  labs(title = "Weight vs MPG", x = "Weight", y = "MPG") +
+  theme_minimal()
+
+# Plot 2: Horsepower vs MPG
+p2 <- ggplot(data, aes(x = hp, y = mpg)) +
+  geom_point_interactive(
+    aes(tooltip = tooltip_simple, data_id = carname),
+    size = 3, color = "darkgreen"
+  ) +
+  labs(title = "Horsepower vs MPG", x = "HP", y = "MPG") +
+  theme_minimal()
+
+# Combine plots using patchwork or cowplot (if available)
+# For this example, we'll show them separately
+girafe(
+  ggobj = p1,
+  options = list(
+    opts_hover(css = "fill:orange;stroke:black;r:6pt;")
+  )
+)
+
+girafe(
+  ggobj = p2,
+  options = list(
+    opts_hover(css = "fill:orange;stroke:black;r:6pt;")
+  )
+)
+```
+
+**Note**: When using the same `data_id` across multiple girafe plots in a single HTML document, hovering over an element in one plot can highlight the corresponding element in other plots (when properly configured in the document).
+
+# Common Patterns & Best Practices
+
+## 1. Creating Informative Tooltips
+
+**Best Practice**: Use HTML formatting for rich, multi-line tooltips:
+
+```{r tooltip-pattern, eval=FALSE}
+# Create formatted tooltip with HTML
+data$tooltip <- paste0(
+  "<b style='color:#333;'>", data$name, "</b><br/>",
+  "<i>Category:</i> ", data$category, "<br/>",
+  "<i>Value:</i> ", round(data$value, 2)
+)
+
+geom_point_interactive(aes(tooltip = tooltip))
+```
+
+## 2. Handling Large Datasets
+
+For datasets with many points, consider:
+
+- Using `alpha` transparency to reduce visual clutter
+- Limiting tooltip text length
+- Using `opts_hover(css = "...")` to make hover effects subtle
+
+```{r large-data-pattern, eval=FALSE}
+ggplot(large_data, aes(x = x, y = y)) +
+  geom_point_interactive(
+    aes(tooltip = short_label),
+    size = 2,
+    alpha = 0.5  # Add transparency
+  )
+```
+
+## 3. Consistent Styling Across Plots
+
+Define reusable option lists:
+
+```{r styling-pattern, eval=FALSE}
+# Define standard options
+my_options <- list(
+  opts_hover(css = "fill:orange;stroke:black;stroke-width:2px;"),
+  opts_tooltip(
+    opacity = 0.9,
+    css = "background-color:white;padding:8px;border-radius:4px;"
+  )
+)
+
+# Reuse across multiple plots
+girafe(ggobj = plot1, options = my_options)
+girafe(ggobj = plot2, options = my_options)
+```
+
+## 4. Grouping with data_id
+
+**Important**: Interactive aesthetics can affect ggplot2's automatic grouping. When using `data_id`, explicitly specify the `group` aesthetic if needed:
+
+```{r grouping-pattern, eval=FALSE}
+ggplot(data, aes(x = time, y = value, color = category)) +
+  geom_line_interactive(
+    aes(
+      tooltip = label,
+      data_id = category,
+      group = category  # Explicit grouping
+    )
+  )
+```
+
+## 5. Testing Interactivity
+
+Always test your interactive plots in the target environment:
+
+- **R Markdown**: Knit the document to HTML
+- **Shiny**: Run the app in a browser (not RStudio Viewer for full functionality)
+- **Standalone HTML**: Save using `htmlwidgets::saveWidget()`
+
+## Common Pitfalls to Avoid
+
+1. **Forgetting to use `girafe()`**: Interactive geoms alone don't create interactivity - you must wrap with `girafe()`
+2. **Overly complex tooltips**: Keep tooltips concise for better user experience
+3. **Inconsistent `data_id`**: Ensure matching elements have identical `data_id` values
+4. **Not testing in browser**: Some features work differently in RStudio Viewer vs. browser
+
+# References & Further Reading
+
+## Official Documentation
+
+- **Main Website**: https://davidgohel.github.io/ggiraph/
+- **Function Reference**: https://davidgohel.github.io/ggiraph/reference/index.html
+- **GitHub Repository**: https://github.com/davidgohel/ggiraph
+
+## Key Documentation Pages Used
+
+1. ggiraph Homepage - Overview and installation
+2. Function Reference - Complete list of functions and their parameters
+3. girafe() Documentation - Core function details
+4. girafe_options() Documentation - Customization options
+
+## Getting Help
+
+- **Stack Overflow**: Use tags `ggiraph` and `r` for questions
+- **GitHub Issues**: Report bugs at https://github.com/davidgohel/ggiraph/issues
+- **RStudio Community**: Search for ggiraph discussions
+
+## Related Packages
+
+- **plotly**: Alternative for interactive ggplot2 graphics with different features
+- **htmlwidgets**: Underlying framework for R/HTML interactivity
+- **shiny**: Build interactive web applications with ggiraph
+- **patchwork**: Combine multiple ggiraph plots in layouts
+
+## Additional Learning Resources
+
+- ggplot2 documentation: https://ggplot2.tidyverse.org/
+- HTML/CSS basics for customizing tooltips and hover effects
+- JavaScript basics for advanced `onclick` actions
+
+---
+
+**Tutorial created**: `r Sys.Date()`
+**ggiraph version used**: `r packageVersion("ggiraph")`
