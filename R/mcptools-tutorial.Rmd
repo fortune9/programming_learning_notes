@@ -1,0 +1,733 @@
+---
+title: "mcptools: Model Context Protocol for R"
+output:
+  github_document:
+    toc: true
+    toc_depth: 3
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, eval = FALSE)
+```
+
+## Introduction
+
+`mcptools` is an R package that implements the **Model Context Protocol (MCP)**, an open-source standard for connecting AI applications to external systems. Think of MCP like a USB-C port for AI applications—it provides a standardized way to connect AI tools to data sources, tools, and workflows.
+
+### What is the Model Context Protocol?
+
+MCP enables AI applications like Claude or ChatGPT to connect to:
+- **Data sources**: local files, databases, APIs
+- **Tools**: search engines, calculators, R functions
+- **Workflows**: specialized prompts, custom logic
+
+### What can mcptools do?
+
+`mcptools` enables R to work with MCP in two ways:
+
+1. **R as an MCP Server**: AI coding assistants (Claude Desktop, VS Code Copilot, Claude Code) can run R code in your active R sessions to answer questions about your data and environment
+2. **R as an MCP Client**: Register third-party MCP servers to add external capabilities to R-based chat applications (e.g., `shinychat`, `querychat`)
+
+### Use Cases
+
+- AI assistants can inspect your R environment, check package documentation, and analyze your data
+- Claude Code can generate data visualizations by accessing your actual datasets
+- Enterprise chatbots can query R-connected databases and run statistical analyses
+- Shiny chat applications can integrate external tools like web search or file systems
+
+## Installation & Setup
+
+### Installation
+
+```{r install}
+# From CRAN (stable version)
+install.packages("mcptools")
+
+# Development version from GitHub
+# install.packages("pak")
+pak::pak("posit-dev/mcptools")
+```
+
+### Verify Installation
+
+```{r verify}
+library(mcptools)
+packageVersion("mcptools")
+```
+
+### Prerequisites
+
+- R 4.1.0 or higher
+- For server mode: An MCP-compatible AI client (Claude Desktop, Claude Code, VS Code with Copilot)
+- For client mode: The `ellmer` package for chat functionality
+
+## Key Concepts
+
+| Concept | Description | Example |
+|---------|-------------|---------|
+| **MCP Server** | A system that exposes tools/data to AI clients | R session exposing functions to Claude Desktop |
+| **MCP Client** | An AI application that connects to servers | Claude Desktop, ChatGPT, R chat apps using `ellmer` |
+| **Tools** | Functions that AI clients can call | `rnorm()`, `read.csv()`, database queries |
+| **Transport** | Communication method between client and server | `stdio` (standard input/output) or `http` |
+| **Session** | An interactive R session exposed via MCP | Your running R console with loaded data/packages |
+
+### Architecture Overview
+
+**R as MCP Server:**
+```
+[AI Client: Claude Desktop] <--MCP--> [R Session: mcptools server] <--> [Your R Environment]
+```
+
+**R as MCP Client:**
+```
+[R Chat App: shinychat] <---> [mcptools client] <--MCP--> [External MCP Servers]
+```
+
+## Key Functions/Commands
+
+| Function | Purpose | Example | Key Parameters |
+|----------|---------|---------|----------------|
+| `mcp_server()` | Start an MCP server to expose R functions to AI clients | `mcp_server(tools = list(tool_rnorm))` | `tools`, `type`, `host`, `port`, `session_tools` |
+| `mcp_tools()` | Fetch tools from MCP servers for use in R chat apps | `tools <- mcp_tools(config = "~/.config/mcp.json")` | `config` (path to config file) |
+| `mcp_session()` | Make an interactive R session available to MCP servers | `mcp_session()` | None |
+| `tool()` | Define a custom tool (from `ellmer` package) | `tool(rnorm, description = "Generate random numbers", arguments = list(...))` | `fun`, `description`, `arguments`, `name` |
+
+### Function Details
+
+#### `mcp_server()`
+
+Starts an MCP server that exposes R functions as tools.
+
+```r
+mcp_server(
+  tools = NULL,
+  ...,
+  type = c("stdio", "http"),
+  host = "127.0.0.1",
+  port = as.integer(Sys.getenv("MCPTOOLS_PORT", "8080")),
+  session_tools = TRUE
+)
+```
+
+**Parameters:**
+- `tools`: List of ellmer tools to expose, or path to .R file with tool definitions (default: `NULL`)
+- `...`: Reserved for future use
+- `type`: Transport type - `"stdio"` (default, for local) or `"http"` (for network)
+- `host`: Host to bind for HTTP transport (default: `"127.0.0.1"`)
+- `port`: Port for HTTP transport (default: from `MCPTOOLS_PORT` env var or `8080`)
+- `session_tools`: Include built-in session tools (default: `TRUE`)
+
+**Returns:** Blocks R process and runs server until stopped
+
+#### `mcp_tools()`
+
+Fetches tools from configured MCP servers for use in chat applications.
+
+```r
+mcp_tools(config = NULL)
+```
+
+**Parameters:**
+- `config`: Path to MCP servers configuration file (JSON format). Default: `.mcptools_config` option or `~/.config/mcptools/config.json`
+
+**Returns:** List of ellmer tools compatible with `Chat` objects
+
+#### `mcp_session()`
+
+Makes the current R session available to MCP servers, allowing AI clients to interact with your environment.
+
+```r
+mcp_session()
+```
+
+**Parameters:** None
+
+**Returns:** Invisibly returns nanonext socket for communication
+
+#### `tool()` (from ellmer package)
+
+Define a custom tool for use with MCP or chat applications.
+
+```r
+tool(
+  fun,
+  description,
+  arguments = list(),
+  name = NULL,
+  convert = TRUE,
+  annotations = list()
+)
+```
+
+**Parameters:**
+- `fun`: The R function to be invoked when the tool is called
+- `description`: Detailed description of what the function does
+- `arguments`: Named list of argument definitions using `type_*()` functions
+- `name`: Tool name (optional if `fun` is a named function)
+- `convert`: Auto-convert JSON inputs to R types (default: `TRUE`)
+- `annotations`: Additional metadata (usually from `tool_annotations()`)
+
+## Configuration
+
+### Configuring Claude Desktop to Use R as Server
+
+To allow Claude Desktop to run R code in your sessions, add this to your Claude Desktop configuration file:
+
+**Location:**
+- macOS: `~/Library/Application Support/Claude/claude_desktop_config.json`
+- Windows: `%APPDATA%\Claude\claude_desktop_config.json`
+- Linux: `~/.config/Claude/claude_desktop_config.json`
+
+**Basic Configuration:**
+```json
+{
+  "mcpServers": {
+    "r-mcptools": {
+      "command": "Rscript",
+      "args": ["-e", "mcptools::mcp_server()"]
+    }
+  }
+}
+```
+
+**With Custom Tools:**
+```json
+{
+  "mcpServers": {
+    "r-custom": {
+      "command": "Rscript",
+      "args": ["-e", "mcptools::mcp_server(tools = '/path/to/tools.R')"]
+    }
+  }
+}
+```
+
+### Configuring Claude Code
+
+Use the command line to add R as an MCP server:
+
+```bash
+claude mcp add -s "user" r-mcptools -- Rscript -e "mcptools::mcp_server()"
+```
+
+Or manually edit: `~/.config/Claude Code/mcp_config.json`
+
+### Configuration File for MCP Tools (Client Mode)
+
+When using R as an MCP client, create a configuration file listing the servers to connect to:
+
+**Default location:** `~/.config/mcptools/config.json`
+
+```json
+{
+  "mcpServers": {
+    "filesystem": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-filesystem", "/home/user/data"]
+    },
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    }
+  }
+}
+```
+
+## Full Working Examples
+
+### Example 1: R as an MCP Server - Custom Random Number Tool
+
+Create a custom tool that generates random numbers and expose it to AI clients:
+
+```{r server-example}
+library(mcptools)
+library(ellmer)
+
+# Define a custom tool for generating random numbers
+# Note: arguments are now passed as a named list
+tool_rnorm <- tool(
+  rnorm,
+  description = "Draw numbers from a random normal distribution",
+  arguments = list(
+    n = type_integer("Number of observations to generate"),
+    mean = type_number("Mean value of the distribution"),
+    sd = type_number("Standard deviation of the distribution")
+  )
+)
+
+# Define another tool for summary statistics
+tool_summary <- tool(
+  summary,
+  description = "Generate summary statistics for a numeric vector",
+  arguments = list(
+    object = type_object("The object to summarize")
+  )
+)
+
+# Start the MCP server with these tools
+# This will block and wait for connections from AI clients
+mcp_server(tools = list(tool_rnorm, tool_summary))
+```
+
+**Usage:** After starting this server and configuring Claude Desktop, you can ask:
+- "Generate 100 random numbers with mean 50 and sd 10"
+- "Create a normal distribution and show me its summary"
+
+### Example 2: R as an MCP Server - Data Analysis Tool
+
+Create a tool that performs data analysis on your loaded datasets:
+
+```{r analysis-server}
+library(mcptools)
+library(ellmer)
+
+# Define a tool for data exploration
+tool_explore_data <- tool(
+  function(dataset_name) {
+    # Get the dataset from the global environment
+    data <- get(dataset_name, envir = .GlobalEnv)
+
+    list(
+      dimensions = dim(data),
+      column_names = names(data),
+      column_types = sapply(data, class),
+      summary = summary(data),
+      head = head(data, 3)
+    )
+  },
+  name = "explore_data",
+  description = "Explore a dataset in the R environment",
+  arguments = list(
+    dataset_name = type_string("Name of the dataset to explore")
+  )
+)
+
+# Load some example data
+data(mtcars)
+data(iris)
+
+# Start the server
+mcp_server(tools = list(tool_explore_data))
+```
+
+**Usage:** Ask Claude Desktop: "Explore the mtcars dataset and tell me about it"
+
+### Example 3: R as an MCP Client - Chat App with External Tools
+
+Use mcptools in an ellmer chat application to access external MCP servers:
+
+```{r client-example}
+library(mcptools)
+library(ellmer)
+
+# First, create a config file at ~/.config/mcptools/config.json
+# with your desired MCP servers (filesystem, GitHub, etc.)
+
+# Load tools from MCP servers
+external_tools <- mcp_tools(config = "~/.config/mcptools/config.json")
+
+# Create a chat object
+chat <- chat_anthropic()
+
+# Set the tools from MCP servers
+chat$set_tools(external_tools)
+
+# Now you can chat with access to external tools
+chat$chat("What issues are open on posit-dev/mcptools?")
+```
+
+**Note:** This assumes you have configured a GitHub MCP server in your config file.
+
+### Example 4: Registering an Interactive R Session
+
+Allow AI assistants to interact with your running R session:
+
+```{r session-example}
+library(mcptools)
+
+# Load some data and packages you want to work with
+library(dplyr)
+library(ggplot2)
+data(mtcars)
+
+# Register this session with MCP
+# Add this to your .Rprofile to automatically register new sessions
+mcp_session()
+
+# Now AI assistants can:
+# - See what objects are in your environment
+# - Check which packages are loaded
+# - Access help for functions in loaded packages
+# - Suggest analyses based on your data
+```
+
+**Usage:** Once configured in Claude Desktop, ask:
+- "What datasets do I have loaded?"
+- "Show me the structure of mtcars"
+- "What does the filter function in dplyr do?"
+
+### Example 5: Using the btw Package Integration
+
+The `btw` package provides excellent default tools for R sessions:
+
+```{r btw-integration}
+# Install btw package
+# install.packages("btw")
+
+library(mcptools)
+library(btw)
+
+# The btw package automatically provides tools when loaded
+# Start a server with btw's built-in tools:
+# - Browse package documentation
+# - Inspect objects in your environment
+# - Get session info
+
+mcp_server()  # btw tools are included automatically if btw is loaded
+```
+
+**Usage with btw:**
+- "What functions are available in the dplyr package?"
+- "Show me the structure of the iris dataset in my environment"
+- "What packages do I have loaded?"
+
+### Example 6: HTTP Server for Remote Access
+
+Run an MCP server over HTTP for network access:
+
+```{r http-server}
+library(mcptools)
+library(ellmer)
+
+# Define tools
+tool_system_info <- tool(
+  function() {
+    list(
+      r_version = R.version.string,
+      platform = Sys.info()["sysname"],
+      working_dir = getwd()
+    )
+  },
+  name = "system_info",
+  description = "Get R system information",
+  arguments = list()  # No arguments
+)
+
+# Start HTTP server
+mcp_server(
+  tools = list(tool_system_info),
+  type = "http",
+  host = "0.0.0.0",  # Listen on all interfaces
+  port = 8080
+)
+
+# Access from another machine via http://your-ip:8080
+```
+
+**Note:** Be cautious with HTTP servers - only expose them on trusted networks.
+
+### Example 7: Tool with Error Handling
+
+Create a safe tool with proper error handling:
+
+```{r error-tool}
+library(mcptools)
+library(ellmer)
+
+tool_safe_divide <- tool(
+  function(x, y) {
+    tryCatch({
+      if (y == 0) {
+        return(list(error = TRUE, message = "Cannot divide by zero"))
+      }
+      list(result = x / y, error = FALSE)
+    }, error = function(e) {
+      list(error = TRUE, message = conditionMessage(e))
+    })
+  },
+  name = "safe_divide",
+  description = "Safely divide two numbers with error handling",
+  arguments = list(
+    x = type_number("Numerator"),
+    y = type_number("Denominator")
+  )
+)
+
+mcp_server(tools = list(tool_safe_divide))
+```
+
+## Common Patterns & Best Practices
+
+### 1. Tool Design Patterns
+
+**Keep tools focused on single responsibilities:**
+```{r tool-pattern-1}
+library(ellmer)
+
+# Good: Single responsibility
+tool_mean <- tool(
+  mean,
+  description = "Calculate the arithmetic mean of a numeric vector",
+  arguments = list(
+    x = type_number("Numeric vector")
+  )
+)
+
+# Avoid: Multiple responsibilities in one tool
+# Better to create separate tools for mean, median, sd, etc.
+```
+
+**Provide detailed descriptions:**
+```{r tool-pattern-2}
+# Good: Detailed description helps the LLM understand when to use it
+tool_filter_data <- tool(
+  function(data_name, condition) {
+    data <- get(data_name, envir = .GlobalEnv)
+    subset(data, eval(parse(text = condition)))
+  },
+  name = "filter_data",
+  description = "Filter rows of a data frame based on a logical condition. The condition should be a string representing valid R code that evaluates to a logical vector. For example: 'mpg > 20' or 'cyl == 6'.",
+  arguments = list(
+    data_name = type_string("Name of the data frame in the global environment"),
+    condition = type_string("Logical condition as a string (e.g., 'mpg > 20')")
+  )
+)
+```
+
+### 2. Use Type Specifications Correctly
+
+```{r type-specs}
+library(ellmer)
+
+# Available type functions:
+# - type_string()    : For text
+# - type_number()    : For numeric values
+# - type_integer()   : For whole numbers
+# - type_boolean()   : For TRUE/FALSE
+# - type_object()    : For complex objects
+# - type_array()     : For arrays/lists
+# - type_enum()      : For specific choices
+
+tool_example <- tool(
+  function(text, count, enabled, choice) {
+    # Function implementation
+  },
+  description = "Example showing different type specifications",
+  arguments = list(
+    text = type_string("A text parameter"),
+    count = type_integer("A whole number"),
+    enabled = type_boolean("A true/false flag"),
+    choice = type_enum(c("option1", "option2", "option3"),
+                       description = "Pick one option")
+  )
+)
+```
+
+### 3. Session Management
+
+**Run server in background for production:**
+```{r session-management}
+# Option 1: Run in separate R process
+# Start a new R session and run:
+library(mcptools)
+mcp_server(tools = my_tools)
+
+# Option 2: Use callr for background process
+library(callr)
+r_bg <- r_bg(function() {
+  mcptools::mcp_server()
+})
+
+# Check if it's running
+r_bg$is_alive()
+
+# Stop it when done
+r_bg$kill()
+```
+
+### 4. Security Considerations
+
+**Validate inputs and restrict access:**
+```{r security-example}
+library(ellmer)
+
+# Bad: Unrestricted file access
+tool_read_file_unsafe <- tool(
+  readLines,
+  description = "Read any file",
+  arguments = list(
+    con = type_string("File path")
+  )
+)
+
+# Good: Restricted to specific directory
+tool_read_data_safe <- tool(
+  function(filename) {
+    # Restrict to safe directory
+    safe_dir <- "~/safe_data_dir"
+    safe_path <- file.path(safe_dir, basename(filename))
+
+    # Validate the path is within safe directory
+    if (!file.exists(safe_path)) {
+      stop("File not found in safe directory")
+    }
+
+    readLines(safe_path)
+  },
+  name = "read_safe_data",
+  description = "Read file from safe data directory only",
+  arguments = list(
+    filename = type_string("Filename (basename only, no paths)")
+  )
+)
+```
+
+**Security best practices:**
+- Never expose sensitive functions over HTTP without authentication
+- Validate all inputs in custom tools
+- Use `stdio` transport for local-only access
+- Be cautious with file system and database access
+- Review tool code before exposing to AI clients
+
+### 5. Testing Your Tools
+
+Before deploying MCP servers, test tools locally:
+
+```{r testing}
+library(mcptools)
+library(ellmer)
+
+# Define tool
+my_tool <- tool(
+  function(x) x^2,
+  name = "square",
+  description = "Square a number",
+  arguments = list(
+    x = type_number("Number to square")
+  )
+)
+
+# Test the underlying function directly
+my_tool$fun(5)  # Should return 25
+
+# Test with a chat (requires API key)
+chat <- chat_anthropic()
+chat$register_tool(my_tool)
+chat$chat("What is 7 squared?")
+
+# Check the conversation history
+chat
+```
+
+### 6. Working with R Objects
+
+**Serialize complex R objects properly:**
+```{r objects}
+library(ellmer)
+
+tool_get_model_summary <- tool(
+  function(model_name) {
+    model <- get(model_name, envir = .GlobalEnv)
+
+    # Return a list that can be serialized to JSON
+    list(
+      coefficients = coef(model),
+      r_squared = summary(model)$r.squared,
+      residual_se = summary(model)$sigma,
+      n_obs = nobs(model)
+    )
+  },
+  name = "get_model_summary",
+  description = "Get summary statistics from a fitted linear model",
+  arguments = list(
+    model_name = type_string("Name of the model object in environment")
+  )
+)
+```
+
+## Common Pitfalls to Avoid
+
+1. **Blocking the R session**: `mcp_server()` blocks the current R session. Run it in a separate process if you need your session for other work.
+
+2. **Forgetting to restart AI clients**: After changing MCP configuration, restart Claude Desktop or VS Code to pick up changes.
+
+3. **Incorrect tool parameter format**: In ellmer 0.3.0+, use `arguments = list(...)` not `...` directly.
+
+4. **Path issues**: Use absolute paths in configuration files, especially on Windows.
+
+5. **Port conflicts**: If using HTTP transport, ensure the port isn't already in use with `netstat -an | grep <port>`.
+
+6. **Missing type specifications**: Always define parameter types with `type_*()` functions for proper tool schemas.
+
+7. **Not testing tools locally**: Test tool functions independently before exposing them via MCP.
+
+## Troubleshooting
+
+### Server doesn't start
+- Check that `Rscript` is in your PATH: `which Rscript` (Unix) or `where Rscript` (Windows)
+- Verify the configuration file syntax is valid JSON
+- Look for error messages in the AI client's developer logs
+- Try running `Rscript -e "mcptools::mcp_server()"` directly in terminal
+
+### Tools not appearing in AI client
+- Ensure `session_tools = TRUE` if you want built-in tools
+- Verify tool definitions use correct `tool()` syntax (ellmer 0.3.0+)
+- Restart the AI client application completely
+- Check that the R process is still running
+
+### Connection issues with HTTP server
+- Check firewall settings: `sudo ufw status` (Linux)
+- Verify the correct host and port in configuration
+- Ensure the server process is still running: `ps aux | grep Rscript`
+- Test connection: `curl http://localhost:8080` or `nc -zv localhost 8080`
+
+### Tools failing silently
+- Add comprehensive error handling to tool functions
+- Check R's warning/error messages
+- Test tools locally first with `tool_name$fun(args)`
+- Enable debug logging in the AI client
+
+### Chat not using tools
+- Verify tools are registered: `chat$get_tools()`
+- Ensure tool descriptions are clear and detailed
+- Try asking more explicitly: "Use the X tool to do Y"
+- Check that tool parameter types match what you're asking for
+
+## References & Further Reading
+
+### Official Documentation
+- [mcptools GitHub Repository](https://github.com/posit-dev/mcptools) - Source code and latest development
+- [mcptools CRAN Page](https://cran.r-project.org/package=mcptools) - Stable release documentation
+- [mcptools Package Site](https://posit-dev.github.io/mcptools/) - Full package documentation
+- [Model Context Protocol Official Site](https://modelcontextprotocol.io) - MCP specification and overview
+- [MCP Documentation](https://modelcontextprotocol.io/docs) - Complete MCP guides
+- [MCP Architecture](https://modelcontextprotocol.io/docs/learn/architecture) - Protocol architecture details
+
+### Related R Packages
+- [ellmer](https://ellmer.tidyverse.org/) - R package for building LLM-powered applications
+  - [Tool Calling Vignette](https://ellmer.tidyverse.org/articles/tool-calling.html)
+- [btw](https://github.com/posit-dev/btw) - Contextual R help for LLMs, default MCP tools
+- [shinychat](https://github.com/posit-dev/shinychat) - Shiny chat interface components
+- [querychat](https://github.com/posit-dev/querychat) - Query-based chat applications
+
+### MCP Ecosystem
+- [MCP Registry](https://modelcontextprotocol.io/registry) - Directory of available MCP servers
+- [MCP Specification](https://spec.modelcontextprotocol.io/) - Technical protocol specification
+- [MCP GitHub](https://github.com/modelcontextprotocol) - Official MCP repositories
+
+### AI Clients Supporting MCP
+- [Claude Desktop](https://claude.ai/download) - Desktop app with MCP support
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) - AI coding assistant
+- [VS Code with GitHub Copilot](https://code.visualstudio.com/docs/copilot/chat/mcp-servers) - Editor integration
+- [Cursor](https://cursor.com/docs/context/mcp) - AI-powered code editor
+- [ChatGPT Desktop](https://help.openai.com/en/articles/10204709-mcp) - OpenAI's MCP client
+
+### Community Resources
+- [Posit Community](https://community.rstudio.com/) - R community forum
+- [MCP GitHub Discussions](https://github.com/modelcontextprotocol/specification/discussions) - MCP community
+
+### Example MCP Servers (not R-specific)
+- [@modelcontextprotocol/server-filesystem](https://github.com/modelcontextprotocol/servers/tree/main/src/filesystem) - File system access
+- [@modelcontextprotocol/server-github](https://github.com/modelcontextprotocol/servers/tree/main/src/github) - GitHub API
+- [@modelcontextprotocol/server-postgres](https://github.com/modelcontextprotocol/servers/tree/main/src/postgres) - PostgreSQL access
+- [MCP Servers Repository](https://github.com/modelcontextprotocol/servers) - Official server implementations
