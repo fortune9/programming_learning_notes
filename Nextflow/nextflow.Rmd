@@ -1186,6 +1186,195 @@ in the config file (here `cluster`) will override the same options in the earlie
     certain time (given by the timeout option) if the compute enviroment is updated.
     So it is better to update compute environment when no taks are running in it.
 
+### AWS Batch config options: where they take effect
+
+How Nextflow's `aws.*` config settings flow into an AWS Batch task execution,
+and specifically which options affect **data staging**.
+
+#### Two separate S3 transfer layers
+
+There are two completely different processes that talk to S3, on two different machines:
+
+| Layer | Who runs the transfer | Governed by |
+|---|---|---|
+| **Head node -> S3** (publishDir, `bin/` upload, writing `.command.*`, output collection) | Nextflow JVM using the AWS SDK v2 CRT async S3 client | `aws.client.*` (incl. `minimumPartSize`) |
+| **In-container staging** (classic Batch) | `aws s3` CLI / `s5cmd` running inside the Batch job container | `aws.batch.*` + a small subset of `aws.client.*` that become CLI flags |
+| **In-container staging** (Fusion mode) | Fusion filesystem client | Fusion / `wave` config (no `aws s3` CLI staging) |
+
+Key point: the two layers run in different processes on different hosts. Options
+for one layer do **not** reach the other unless explicitly translated.
+
+#### How staging works in classic (non-Fusion) mode
+
+`AwsBatchScriptLauncher` (a `BashWrapperBuilder`) uses `AwsBatchFileCopyStrategy`
+to embed bash snippets into `.command.run`. At runtime, inside the container:
+
+1. The Batch job command (`AwsBatchExecutor.s3Cmd`) does `aws s3 cp .command.run - | bash`.
+2. `getBeforeStartScript()` -> `S3BashLib.script(opts)` defines `nxf_s3_download` /
+   `nxf_s3_upload` (wrappers over `aws s3 cp`) plus `nxf_parallel` and `nxf_cp_retry`.
+3. `getStageInputFilesScript()` builds `downloads=(...)` and runs
+   `nxf_parallel "${downloads[@]}"` to pull inputs from S3 into container scratch.
+4. The user command runs (`scratch=true` is forced).
+5. `getUnstageOutputFilesScript()` builds `uploads=(...)` and runs
+   `nxf_parallel "${uploads[@]}"` to push outputs back to S3.
+
+So the head node only *writes the instructions*; the container's `aws` CLI does
+the actual staging I/O.
+
+#### Do `aws.client.*` options affect staging? Mostly NO
+
+The in-container staging is executed by the `aws` CLI binary, which reads
+`aws.batch.*` (rendered into CLI flags/env by `S3BashLib`) and standard AWS CLI
+env/config — **not** the SDK CRT client settings.
+
+Most `aws.client.*` options configure only the head-node SDK client
+(`AwsClientFactory.setMultipartConfiguration` / `getAwsClientConfig`) and are
+**never** rendered into the container script. These do NOT affect in-container staging:
+
+- `minimumPartSize`
+- `multipartThreshold`
+- `maxConnections`
+- `maxConcurrency`
+- `maxDownloadHeapMemory`
+- `maxNativeMemory`
+- `targetThroughputInGbps`
+- `maxErrorRetry`
+- `connectionTimeout`, `socketTimeout`
+- `proxy*`
+- deprecated `uploadChunkSize`, `uploadMaxThreads`, `uploadMaxAttempts`, `uploadRetrySleep`
+
+They only tune the JVM's own S3 access (publishDir to S3, staging via the S3 NIO
+filesystem, uploading the `bin/` dir, writing `.command.*`, collecting outputs).
+
+#### Which options DO reach the container staging script
+
+Traced through `S3BashLib.lib0()` -> `AwsOptions` getters -> config scope:
+
+| `S3BashLib` builder call | `AwsOptions` getter | Source scope | Effect in container script |
+|---|---|---|---|
+| `withMaxParallelTransfers` | `maxParallelTransfers` | `aws.batch` (default 4) | caps concurrency in `nxf_parallel` |
+| `withDelayBetweenAttempts` | `delayBetweenAttempts` | `aws.batch` | retry sleep in `nxf_cp_retry` |
+| `withMaxTransferAttempts` | `maxTransferAttempts` | `aws.batch` | retry count in `nxf_cp_retry` / `AWS_MAX_ATTEMPTS` |
+| `withCliPath` | `awsCli` (`cliPath` + `region`) | `aws.batch.cliPath` + `aws.region` | which `aws` binary + `--region` |
+| `withRetryMode` | `retryMode` | `aws.batch` | `AWS_RETRY_MODE` env in script |
+| `withS5cmdPath` | `s5cmdPath` | `aws.batch` (Fargate) | use `s5cmd` instead of `aws s3` |
+| `withForceGlacierTransfer` | `forceGlacierTransfer` | `aws.batch` | `--force-glacier-transfer` on download |
+| `withStorageClass` | `storageClass` | `aws.client` | `--storage-class` on upload |
+| `withStorageEncryption` | `storageEncryption` | `aws.client` | `--sse` on upload |
+| `withStorageKmsKeyId` | `storageKmsKeyId` | `aws.client` | `--sse-kms-key-id` on upload |
+| `withAcl` | `s3Acl` | `aws.client` | `--acl` on upload |
+| `withRequesterPays` | `requesterPays` | `aws.client` | `--request-payer requester` |
+| `withDebug` | `debug` | `aws.client` | `--debug` on `aws s3 cp` |
+
+So the only `aws.client.*` values that affect in-container staging are the ones
+`S3BashLib` explicitly converts into `aws s3 cp` CLI flags:
+**`storageClass`, `storageEncryption`, `storageKmsKeyId`, `s3Acl`, `requesterPays`, `debug`**.
+
+#### Fusion mode note
+
+When Fusion is enabled (`AwsBatchTaskHandler.createTaskWrapper()` -> `fusionLauncher()`),
+there is no `aws s3` CLI staging. Fusion mounts S3 as a POSIX filesystem and does
+its own transfers, so neither `aws.batch.maxParallelTransfers` nor the CLI-flag
+path apply; staging is governed by Fusion/wave settings.
+
+#### Controlling `aws s3 cp` transfer rate to avoid instance crashes
+
+There is **no** `aws.batch.*` or `aws.client.*` option to inject arbitrary flags
+(e.g. `--max-bandwidth`) into the generated `aws s3 cp` commands. The command
+template in `S3BashLib.s3Lib()` is fixed. So finer transfer tuning must be done
+outside Nextflow, on the execution host.
+
+#### Root cause of staging OOM / instance crash
+
+`aws s3 cp` reads its transfer settings from the AWS CLI config file `s3` section,
+not from Nextflow. Total concurrency stacks up:
+
+- `nxf_parallel` runs up to `aws.batch.maxParallelTransfers` files at once (default 4)
+- each `aws s3 cp` internally uses `max_concurrent_requests` (CLI default 10)
+- => up to 4 x 10 = 40 concurrent connections, plus multipart buffers -> memory blowup
+
+##### Option 1 (recommended): configure the AWS CLI in the AMI / container
+
+Since `nxf_s3_*` just calls the `aws` CLI, set limits where the job runs
+(custom AMI bootstrap, launch-template user-data, or container entrypoint):
+
+```ini
+# ~/.aws/config  (or the file pointed to by AWS_CONFIG_FILE)
+[default]
+s3 =
+    max_concurrent_requests = 4
+    multipart_chunksize = 16MB
+    multipart_threshold = 64MB
+    max_bandwidth = 100MB/s
+```
+
+Or at runtime:
+
+```bash
+aws configure set default.s3.max_concurrent_requests 4
+aws configure set default.s3.max_bandwidth 100MB/s
+```
+
+##### Option 2: reduce Nextflow's staging parallelism
+
+```groovy
+// nextflow.config
+aws.batch.maxParallelTransfers = 1   // default 4
+```
+
+Combine with Option 1: hard bound becomes 1 x 4 = 4 concurrent connections + a
+bandwidth ceiling.
+
+##### Option 3: right-size the compute environment
+
+Staging crashes often mean the instance is too small. Increase instance memory in
+the Batch compute environment or set an appropriate `memory` directive.
+
+##### Option 4: use `s5cmd` (Fargate only)
+
+More memory-efficient for many-file staging, but **only wired up in Fargate mode**.
+The single key `aws.batch.cliPath` is routed by `platformType` in `AwsBatchConfig`:
+
+```groovy
+cliPath   = !fargateMode ? parseCliPath(opts.cliPath)   : null   // EC2 mode
+s5cmdPath = fargateMode  ? parses5cmdPath(opts.cliPath) : null   // Fargate mode
+```
+
+- **EC2 mode** (`parseCliPath`): value must be an **absolute path ending in `/bin/aws`**,
+  else `ProcessUnrecoverableException`. If the value contains an `s5cmd` token it
+  is dropped (returns `null`) -> falls back to plain `aws`. So you **cannot**
+  enable s5cmd via `cliPath` on EC2.
+- **Fargate mode** (`parses5cmdPath`): empty -> `'s5cmd'` (on PATH); a value
+  containing an `s5cmd` token is used as-is; any other value is **silently ignored**
+  and falls back to `'s5cmd'`.
+
+To use s5cmd:
+
+```groovy
+aws.batch.platformType = 'fargate'
+aws.batch.cliPath = '/usr/local/bin/s5cmd'   // or omit to use `s5cmd` on PATH
+```
+
+Fewer throttling knobs than the CLI config, so pair with `maxParallelTransfers`.
+
+#### Recommendation
+
+Combine Option 1 (`max_concurrent_requests = 4` + `max_bandwidth` cap in the
+AMI/container CLI config) with Option 2 (`aws.batch.maxParallelTransfers = 1`)
+for a hard, predictable bound on concurrent connections and bandwidth.
+
+#### Key source files
+
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/batch/AwsBatchScriptLauncher.groovy`
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/batch/AwsBatchFileCopyStrategy.groovy`
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/util/S3BashLib.groovy`
+- `modules/nextflow/src/main/groovy/nextflow/executor/BashFunLib.groovy` (`nxf_parallel`, `nxf_cp_retry`)
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/batch/AwsOptions.groovy`
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/config/AwsBatchConfig.groovy`
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/config/AwsS3Config.groovy`
+- `plugins/nf-amazon/src/main/nextflow/cloud/aws/AwsClientFactory.groovy` (`setMultipartConfiguration`)
+
+
 ## Monitoring workflow
 
 One can monitor the running a pipeline/workflow using the *workflow* object,
