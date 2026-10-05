@@ -1,16 +1,435 @@
 ---
 title: "Python's ggplot2: plotnine"
-output: html_document
+output:
+  html_document:
+    toc: true
+    toc_depth: 3
+    number_sections: true
 ---
 
-[plotnine](http://plotnine.readthedocs.io/en/stable/) is a package based
-on Grammar of Graphics in python, just like R's [ggplot2](https://cran.r-project.org/web/packages/ggplot2/index.html).
+[plotnine](https://plotnine.org/) implements the grammar of graphics in Python.
+If you know ggplot2, the layers will look familiar; most translation work is in
+column mappings, pandas data preparation, argument names, and displaying plots.
+This guide pairs R and Python code so you can adapt an existing R script.
+
+The examples use the same small dataset in both languages. Run each language's
+setup first, then run the examples in order. Code chunks are displayed without
+execution when knitting this document, so reading it does not require a Python
+installation or create exported plot files. To execute the Python snippets,
+install `plotnine` and `pandas` in your Python environment:
+
+```bash
+python -m pip install plotnine pandas
+```
+
+```{r document-options, include=FALSE}
+knitr::opts_chunk$set(eval = TRUE, python.reticulate = TRUE, echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## The translation essentials
+
+| In R / ggplot2 | In Python / plotnine | Difference to remember |
+| --- | --- | --- |
+| `library(ggplot2)` | `import plotnine as p9` | Use the `p9.` prefix for plotnine functions. |
+| `p <- ggplot(...)` | `p = p9.ggplot(...)` | Assignment uses `=`. |
+| `aes(x, y, colour = group)` | `p9.aes("x", "y", color="group")` | Column names are strings; `color` is used throughout these examples. |
+| `geom_point(colour = "red")` | `p9.geom_point(color="red")` | Constants go outside `aes()` in both languages. |
+| `TRUE`, `FALSE`, `NULL` | `True`, `False`, `None` | Python spelling and capitalization differ. |
+| `c(1, 2)` | `[1, 2]` or `(1, 2)` | Lists and tuples replace many uses of R vectors. |
+| `c(A = "red", B = "blue")` | `{"A": "red", "B": "blue"}` | Named scale values become a dictionary. |
+| `na.rm`, `show.legend`, `inherit.aes` | `na_rm`, `show_legend`, `inherit_aes` | Many dotted argument names become underscored names. |
+| `geom_line(linewidth = 1)` | `p9.geom_line(size=1)` | Current plotnine line geoms use `size`; point size also uses `size`. |
+| `theme(axis.text.x = ...)` | `p9.theme(axis_text_x=...)` | Theme names use underscores. |
+| `print(p)` | `p.show()` | Use `show()` explicitly in Python scripts. |
+| Layers continued with `+` | Enclose the entire expression in `( ... )` | Parentheses allow Python's multiline expression syntax. |
+
+R evaluates bare column names inside `aes()`. Plotnine evaluates column-name
+strings and can also evaluate expression strings, such as `"weight / 1000"`.
+R expressions such as `log10(x)` or `.data[[name]]` cannot simply be pasted into
+Python. For complicated transformations, create a pandas column first; for a
+variable holding a column name, use `p9.aes(x=name)`.
+See the official [aesthetic mapping reference](https://plotnine.org/reference/aes.html)
+and [ggplot2 mapping reference](https://ggplot2.tidyverse.org/reference/aes.html).
+
+## Equivalent functions
+
+The names below are available in the [plotnine API](https://plotnine.org/reference/index.html).
+A matching name is a useful starting point, but check the particular function's
+arguments when porting a plot.
+
+| ggplot2 | plotnine | Purpose / translation note |
+| --- | --- | --- |
+| `ggplot()`, `aes()` | `p9.ggplot()`, `p9.aes()` | Start a plot and map columns. |
+| `geom_point()`, `geom_jitter()` | `p9.geom_point()`, `p9.geom_jitter()` | Scatter plots; specify jitter width/height for control. |
+| `geom_line()`, `geom_path()` | `p9.geom_line()`, `p9.geom_path()` | Lines sorted by x versus paths in row order. |
+| `geom_bar()`, `geom_col()` | `p9.geom_bar()`, `p9.geom_col()` | Count rows versus plot existing y values. |
+| `geom_histogram()`, `geom_density()` | `p9.geom_histogram()`, `p9.geom_density()` | Binned counts versus density estimates. |
+| `geom_boxplot()`, `geom_violin()` | `p9.geom_boxplot()`, `p9.geom_violin()` | Compare distributions across categories. |
+| `geom_errorbar()`, `geom_ribbon()` | `p9.geom_errorbar()`, `p9.geom_ribbon()` | Map `ymin`/`ymax` as strings in Python. |
+| `geom_text()`, `geom_label()`, `annotate()` | `p9.geom_text()`, `p9.geom_label()`, `p9.annotate()` | Data labels or fixed annotations. |
+| `geom_smooth()` | `p9.geom_smooth()` | Specify the smoothing method explicitly. |
+| `stat_summary()`, `after_stat()` | `p9.stat_summary()`, `p9.after_stat()` | Summary statistics and computed mappings. |
+| `position_dodge()`, `position_jitter()` | `p9.position_dodge()`, `p9.position_jitter()` | Adjust overlapping marks. |
+| `facet_wrap(~group)` | `p9.facet_wrap("group")` | Python uses a column-name string. |
+| `facet_grid(group ~ year)` | `p9.facet_grid(rows="group", cols="year")` | Explicit row and column arguments. |
+| `scale_colour_manual()`, `scale_fill_manual()` | `p9.scale_color_manual()`, `p9.scale_fill_manual()` | Named palettes use dictionaries. |
+| `scale_x_log10()`, `scale_y_log10()` | `p9.scale_x_log10()`, `p9.scale_y_log10()` | Log axes; data must suit the transformation. |
+| `scale_x_continuous()`, `scale_y_discrete()` | `p9.scale_x_continuous()`, `p9.scale_y_discrete()` | Set breaks, labels, and limits. |
+| `coord_cartesian()`, `coord_flip()` | `p9.coord_cartesian()`, `p9.coord_flip()` | Zoom or flip axes. |
+| `labs()`, `guides()`, `guide_legend()` | `p9.labs()`, `p9.guides()`, `p9.guide_legend()` | Axis titles, captions, and legend control. |
+| `theme_minimal()`, `theme_bw()` | `p9.theme_minimal()`, `p9.theme_bw()` | Choose a base theme. |
+| `theme()`, `element_text()`, `element_blank()` | `p9.theme()`, `p9.element_text()`, `p9.element_blank()` | Theme properties and text alignment differ. |
+| `ggsave(..., plot = p)` | `p.save(...)` | Save the specified plot object. |
+| `pdf(); print(p1); print(p2); dev.off()` | `p9.save_as_pdf_pages([p1, p2], ...)` | Export one plot per PDF page. |
+
+## Shared example data
+
+### R setup
+
+```{r r-setup}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+df <- data.frame(
+  subject = rep(1:4, each = 3),
+  group = rep(c("control", "control", "treated", "treated"), each = 3),
+  day = rep(c(0, 7, 14), times = 4),
+  value = c(10, 12, 14, 11, 13, 15, 10, 15, 20, 12, 17, 22)
+)
+df$group <- factor(df$group, levels = c("control", "treated"))
+palette <- c(control = "#0072B2", treated = "#D55E00")
+```
+
+### Python setup
+
+```{r}
+library(reticulate)
+# Use a specific Python environment if needed
+# use_python("/path/to/python", required = TRUE)
+use_python("/mnt/windows/Program/ubuntu/pyenv/versions/3.13.9/bin/python", required = TRUE)
+```
+
+```{python python-setup}
+import pandas as pd
+import plotnine as p9
+
+df = pd.DataFrame({
+    "subject": [1, 1, 1, 2, 2, 2, 3, 3, 3, 4, 4, 4],
+    "group": ["control"] * 6 + ["treated"] * 6,
+    "day": [0, 7, 14] * 4,
+    "value": [10, 12, 14, 11, 13, 15, 10, 15, 20, 12, 17, 22],
+})
+df["group"] = pd.Categorical(
+    df["group"], categories=["control", "treated"], ordered=True
+)
+palette = {"control": "#0072B2", "treated": "#D55E00"}
+```
+
+R factors translate to pandas categorical columns. Numeric codes do not become
+categories automatically: mapping a numeric `subject` to color would normally
+produce a continuous scale. Convert it to a categorical column when you want
+four distinct colors. Set category order explicitly to control axes, legends,
+and facets rather than relying on the order strings happen to appear.
+
+## Paired examples
+
+### Scatter plot: mapping versus setting
+
+```{r scatter-r}
+p_scatter <- ggplot(df, aes(day, value, colour = group)) +
+  geom_point(size = 3, alpha = 0.8) +
+  scale_colour_manual(values = palette) +
+  labs(x = "Day", y = "Response", colour = "Group") +
+  theme_minimal()
+print(p_scatter)
+```
+
+```{python scatter-python}
+p_scatter = (
+    p9.ggplot(df, p9.aes("day", "value", color="group"))
+    + p9.geom_point(size=3, alpha=0.8)
+    + p9.scale_color_manual(values=palette)
+    + p9.labs(x="Day", y="Response", color="Group")
+    + p9.theme_minimal()
+)
+p_scatter.show()
+```
+
+Both plots show response against day, with a legend distinguishing the groups.
+`p9.aes(color="group")` maps a column; `p9.geom_point(color="red")` sets every
+point to red without a color legend. `p9.aes(color="red")` instead asks plotnine
+to evaluate `red`, typically causing an error when that column does not exist.
+
+### Repeated measurements: group lines by subject
+
+```{r lines-r}
+p_lines <- ggplot(df, aes(day, value, colour = group, group = subject)) +
+  geom_line(linewidth = 0.8) + geom_point(size = 2) +
+  scale_colour_manual(values = palette)
+print(p_lines)
+```
+
+```{python lines-python}
+p_lines = (
+    p9.ggplot(df, p9.aes("day", "value", color="group", group="subject"))
+    + p9.geom_line(size=0.8)
+    + p9.geom_point(size=2)
+    + p9.scale_color_manual(values=palette)
+)
+p_lines.show()
+```
+
+There should be four trajectories, with two subjects sharing each group color.
+Without `group="subject"`, the discrete color mapping groups by treatment and
+can connect different subjects. `geom_line()` orders by x within each group;
+`geom_path()` follows row order. For a single trajectory on a discrete x axis,
+`aes(group=1)` can be necessary in both languages.
+Modern ggplot2 uses `linewidth` for line thickness; plotnine's
+[geom_line reference](https://plotnine.org/reference/geom_line.html) uses `size`.
+
+### Bars: row counts versus precomputed values
+
+Count observations in each group (six rows each):
+
+```{r counts-r}
+ggplot(df, aes(group, fill = group)) +
+  geom_bar() + scale_fill_manual(values = palette)
+```
+
+```{python counts-python}
+p_counts = (
+    p9.ggplot(df, p9.aes("group", fill="group"))
+    + p9.geom_bar()
+    + p9.scale_fill_manual(values=palette)
+)
+p_counts.show()
+```
+
+For means by group and day, summarize first and use `geom_col()`. Here
+`geom_bar()` would count summary rows instead of displaying their means.
+
+```{r summary-r}
+summary_df <- df |>
+  group_by(group, day) |>
+  summarise(mean_value = mean(value), .groups = "drop")
+
+p_bars <- ggplot(summary_df, aes(factor(day), mean_value, fill = group)) +
+  geom_col(position = position_dodge(width = 0.8), width = 0.7) +
+  scale_fill_manual(values = palette) +
+  labs(x = "Day", y = "Mean response")
+print(p_bars)
+```
+
+```{python summary-python}
+summary_df = (
+    df.groupby(["group", "day"], observed=True, as_index=False)
+    .agg(mean_value=("value", "mean"))
+)
+p_bars = (
+    p9.ggplot(summary_df, p9.aes("factor(day)", "mean_value", fill="group"))
+    + p9.geom_col(position=p9.position_dodge(width=0.8), width=0.7)
+    + p9.scale_fill_manual(values=palette)
+    + p9.labs(x="Day", y="Mean response")
+)
+p_bars.show()
+```
+
+Control means are 10.5, 12.5, and 14.5; treated means are 11, 16, and 21.
+`as_index=False` keeps grouping keys as columns that plotnine can map.
+`observed=True` limits categorical grouping to observed combinations.
+`"factor(day)"` is a supported plotnine expression that gives equally spaced,
+discrete day labels; map `"day"` to preserve a numeric time axis.
+
+### Histogram: computed density and explicit bins
+
+```{r histogram-r}
+ggplot(df, aes(value, y = after_stat(density))) +
+  geom_histogram(binwidth = 2, boundary = 0, fill = "grey70", colour = "white")
+```
+
+```{python histogram-python}
+p_hist = (
+    p9.ggplot(df, p9.aes("value", y=p9.after_stat("density")))
+    + p9.geom_histogram(binwidth=2, boundary=0, fill="#B3B3B3", color="white")
+)
+p_hist.show()
+```
+
+The density is calculated by the binning statistic, so it is not a column in
+`df`. R uses `after_stat(density)`; Python uses `p9.after_stat("density")`.
+Specify bin width and boundary to make bin placement comparable. R color names such as `"grey70"` are not all recognized in Python;
+use a hex color such as `"#B3B3B3"` for portability. Matching code still need
+not produce identical fonts, spacing, or rendered pixels.
+
+### Facets and explicit smoothing
+
+```{r facets-r}
+p_facets <- ggplot(df, aes(day, value)) +
+  geom_point() +
+  geom_smooth(method = "lm", formula = y ~ x, se = FALSE) +
+  facet_wrap(~group, ncol = 2)
+print(p_facets)
+```
+
+```{python facets-python}
+p_facets = (
+    p9.ggplot(df, p9.aes("day", "value"))
+    + p9.geom_point()
+    + p9.geom_smooth(method="lm", formula="y ~ x", se=False)
+    + p9.facet_wrap("group", ncol=2)
+)
+p_facets.show()
+```
+
+Each panel shows one group's observations and fitted linear trend.
+R facet formulas become column strings; for two variables, use
+`p9.facet_grid(rows="group", cols="day")`.
+`scales="free_y"` lets panels have different y ranges but makes visual
+comparisons less direct. See [facet_grid](https://plotnine.org/reference/facet_grid.html).
+
+Smoother defaults and implementations can differ between R and Python. Choose
+`method="lm"` explicitly for this example. The formula is a string in Python,
+and its `x`/`y` refer to mapped aesthetics. Plotnine's `loess` method requires
+`scikit-misc`; see [stat_smooth](https://plotnine.org/reference/stat_smooth.html).
+
+### Themes, labels, annotations, and zoom
+
+```{r theme-r}
+p_styled <- p_scatter +
+  annotate("text", x = 7, y = 21, label = "Follow-up", size = 4) +
+  coord_cartesian(ylim = c(9, 23)) +
+  theme(
+    axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "bottom",
+    panel.grid.minor = element_blank()
+  )
+print(p_styled)
+```
+
+```{python theme-python}
+p_styled = (
+    p_scatter
+    + p9.annotate("text", x=7, y=21, label="Follow-up", size=10)
+    + p9.coord_cartesian(ylim=(9, 23))
+    + p9.theme(
+        axis_text_x=p9.element_text(angle=45, ha="right"),
+        legend_position="bottom",
+        panel_grid_minor=p9.element_blank(),
+        figure_size=(7, 4),
+    )
+)
+p_styled.show()
+```
+
+Translate dotted theme names to underscores. Plotnine text alignment uses
+`ha="right"`/`va="top"`, where R commonly uses numeric `hjust`/`vjust`.
+Text geom sizes use different units (ggplot2's default is mm; plotnine uses
+points), so the annotation sizes above are approximate visual equivalents.
+See [element_text](https://plotnine.org/reference/element_text.html).
+
+`coord_cartesian(ylim=...)` zooms the display while retaining data for
+statistics. Scale limits, such as `scale_y_continuous(limits=...)`, can remove
+observations before a summary or smoother is computed. This distinction
+matters in both languages.
+
+### Save an image or a multipage PDF
+
+Run these snippets only when you want to write files to the working directory.
+
+```{r save-r}
+ggsave("scatter-r.png", plot = p_scatter, width = 7, height = 4,
+       units = "in", dpi = 300)
+pdf("plots-r.pdf", width = 7, height = 4)
+print(p_scatter)
+print(p_bars)
+dev.off()
+```
+
+```{python save-python}
+p_scatter.save("scatter-python.png", width=7, height=4, units="in", dpi=300)
+p9.save_as_pdf_pages(
+    [p_scatter + p9.theme(figure_size=(7, 4)),
+     p_bars + p9.theme(figure_size=(7, 4))],
+    filename="plots-python.pdf",
+)
+```
+
+Use the plot object's [save method](https://plotnine.org/reference/ggplot.html)
+in place of `ggsave()`. `figure_size` is a `(width, height)` tuple in inches.
+`save_as_pdf_pages()` writes one plot per page; setting each plot's theme lets
+you control each page's size.
+
+## Data preparation: translating tidyverse code
+
+Plotnine handles plotting; pandas handles most transformations you previously
+performed with dplyr or tidyr.
+
+| R | Python / pandas | Difference |
+| --- | --- | --- |
+| `filter(df, day > 0)` | `df.loc[df["day"] > 0].copy()` | Boolean mask selects rows; copy before modifying the subset. |
+| `select(df, day, value)` | `df[["day", "value"]]` | A list of names selects multiple columns. |
+| `mutate(df, doubled = value * 2)` | `df.assign(doubled=df["value"] * 2)` | Returns a new frame with the new column. |
+| `arrange(df, subject, day)` | `df.sort_values(["subject", "day"])` | Important for row-order geoms such as paths. |
+| `group_by(...) |> summarise(...)` | `df.groupby(..., as_index=False).agg(...)` | Keep grouping columns out of the index for plotting. |
+| `drop_na(df, value)` | `df.dropna(subset=["value"])` | Explicitly remove missing plotting values. |
+| `factor(x, levels = ...)` | `pd.Categorical(x, categories=..., ordered=True)` | Specify levels and order. |
+| `pivot_longer(...)` | `df.melt(...)` | Convert measurements in separate columns to long form. |
+
+For example, combine two measurement columns into one value column and a
+measurement label that can be mapped to color or used for facets:
+
+```{r reshape-r}
+wide <- data.frame(day = c(0, 7, 14), marker_a = c(10, 12, 14),
+                   marker_b = c(11, 16, 21))
+long <- pivot_longer(wide, cols = c(marker_a, marker_b),
+                     names_to = "marker", values_to = "value")
+ggplot(long, aes(day, value, colour = marker)) + geom_line()
+```
+
+```{python reshape-python}
+wide = pd.DataFrame({
+    "day": [0, 7, 14], "marker_a": [10, 12, 14], "marker_b": [11, 16, 21]
+})
+long = wide.melt(
+    id_vars="day", value_vars=["marker_a", "marker_b"],
+    var_name="marker", value_name="value",
+)
+p_long = (
+    p9.ggplot(long, p9.aes("day", "value", color="marker"))
+    + p9.geom_line()
+)
+p_long.show()
+```
+
+For compound filters, use parentheses around each pandas condition:
+`df.loc[(df["day"] > 0) & (df["group"] == "treated")]`.
+Python `and`/`or` do not combine pandas boolean Series; use `&`/`|`.
+Pandas means skip missing values by default, whereas R's `mean()` needs
+`na.rm=TRUE` to do so. Make your missing-data policy explicit when comparing
+summaries across languages.
+
+## Common translation problems
+
+| Symptom | Likely cause and fix |
+| --- | --- |
+| A column cannot be found | Use `aes("day", "value")`; confirm spelling and that grouping keys remain columns. Rename awkward column names before using expressions. |
+| A continuous legend appears for category codes | Convert the numeric column to a pandas categorical before mapping it. |
+| Lines join unrelated observations | Set `group` to the subject or series identifier. |
+| Bars display counts instead of means | Use `geom_col()` with the prepared y column. |
+| Python rejects a multiline plot | Wrap the full `ggplot(...) + ...` expression in parentheses. |
+| Python rejects `linewidth` or a dotted keyword | Check the geom reference; use `size` for these line examples and underscored argument names. |
+| A script runs but no plot appears | Call `p.show()` or save the plot explicitly. |
+| A smoother changes after applying limits | Use coordinate zoom if you want statistics based on the full data. |
+| An R extension function is unavailable | ggplot2 extensions do not transfer automatically; find a Python implementation or reconstruct the layer from prepared data. |
+
+When adapting a larger R plot, translate data preparation first, add one layer
+at a time, and compare grouping, category order, summaries, and axis ranges
+before tuning its appearance. Record package versions for reproducible work:
+`packageVersion("ggplot2")` in R, and `p9.__version__` / `pd.__version__` in Python.
 
 
-## Functions
-
-Function | Use
---- | ---
-p9.save_as_pdf_pages() | save multiple plots into a file with each in a separate pdf page, use theme(figure_size=(6,5)) to set figure size
-ggplot.save() | save a ggplot object into a image file.
-
+```{r python-info, include=FALSE}
+# This will print the active Python path, version, and loaded packages
+reticulate::py_config()
+```
