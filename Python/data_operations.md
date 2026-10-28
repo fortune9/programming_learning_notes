@@ -1,7 +1,7 @@
 Data Operations: Python vs R
 ================
 Zhenguo Zhang
-October 04, 2026
+October 27, 2026
 
 - [Run Python with reticulate](#run-python-with-reticulate)
   - [Passing objects between
@@ -45,6 +45,15 @@ October 04, 2026
   - [Index alignment: a major difference from
     R](#index-alignment-a-major-difference-from-r)
   - [Wide and long form](#wide-and-long-form)
+- [Probability distributions: R’s d/p/q/r functions in
+  Python](#probability-distributions-rs-dpqr-functions-in-python)
+  - [Translate the d/p/q/r prefix](#translate-the-dpqr-prefix)
+  - [Common distributions and parameter
+    translations](#common-distributions-and-parameter-translations)
+  - [Normal: density, probability, quantiles, and
+    samples](#normal-density-probability-quantiles-and-samples)
+  - [Poisson: exact counts and inclusive versus strict
+    tails](#poisson-exact-counts-and-inclusive-versus-strict-tails)
 - [Basic statistical analyses](#basic-statistical-analyses)
   - [Welch two-sample t-test](#welch-two-sample-t-test)
   - [Spearman rank correlation](#spearman-rank-correlation)
@@ -65,9 +74,9 @@ October 04, 2026
 
 This guide translates familiar base R, dplyr, and tidyr operations into
 Python. Use **pandas** for tables, **NumPy** for arrays, **SciPy** for
-statistical tests, and **statsmodels** for models with coefficients and
-statistical summaries. The paired examples operate on the same data so
-you can compare results.
+probability distributions and statistical tests, and **statsmodels** for
+models with coefficients and statistical summaries. The paired examples
+operate on the same data so you can compare results.
 
 ## Run Python with reticulate
 
@@ -107,7 +116,7 @@ print("Python:", sys.version.split()[0])
 print("pandas:", pd.__version__)
 ```
 
-    ## pandas: 3.0.6
+    ## pandas: 3.1.0
 
 In RStudio, run the setup first, then run Python chunks with their green
 Run buttons or select complete expressions and press Ctrl+Enter
@@ -157,6 +166,7 @@ py$py_mean
 | lubridate | `pd.to_datetime`, `.dt` methods | Parse dates, extract components, and handle time zones. |
 | R vectors, matrices | NumPy `ndarray` | Zero-based indexing; broadcasting differs from R recycling. |
 | `t.test`, `cor.test` | `scipy.stats` | Check defaults, missing data, and test method. |
+| `dnorm`, `pnorm`, `qnorm`, `rnorm`, etc. | `scipy.stats` distribution methods | Density/mass, cumulative probability, quantiles, and random samples. |
 | `lm`, `glm` | statsmodels formula API | R-like formula strings, followed by `.fit()`. |
 | ggplot2 | plotnine; Matplotlib | See the companion `plotnine.Rmd` for plot translations. |
 | `saveRDS`, `readRDS` | No universal direct equivalent | Prefer interoperable CSV/Parquet for tables; pickle is Python-specific. |
@@ -1278,6 +1288,208 @@ If you need to aggregate duplicates, use
 `pivot_table(..., aggfunc="mean")` deliberately; do not silently average
 measurements when the intended operation is a reshape.
 
+## Probability distributions: R’s d/p/q/r functions in Python
+
+R uses a prefix plus a distribution name, such as `dnorm()`, `pnorm()`,
+`qnorm()`, and `rnorm()`. SciPy uses a distribution object followed by a
+method, such as `stats.norm.pdf()`, `.cdf()`, `.ppf()`, and `.rvs()`.
+The existing setup imports `from scipy import stats` and
+`import numpy as np`.
+
+### Translate the d/p/q/r prefix
+
+In this table, `dist` is a configured distribution, for example
+`dist = stats.norm(loc=10, scale=2)` or `dist = stats.poisson(mu=3)`.
+`p` is a probability and `n` is the number of random draws.
+
+| R operation | SciPy equivalent | Meaning |
+|----|----|----|
+| `d*(x, ...)` for a continuous distribution | `dist.pdf(x)` | Probability **density**, not the probability at a single point. |
+| `d*(k, ...)` for a discrete distribution | `dist.pmf(k)` | Probability mass: `P(X = k)`. |
+| `p*(x, ...)` | `dist.cdf(x)` | Lower tail: `P(X <= x)`. |
+| `p*(x, ..., lower.tail=FALSE)` | `dist.sf(x)` | Upper tail: `P(X > x)`; survival function. |
+| `q*(p, ...)` | `dist.ppf(p)` | Quantile; inverse CDF (percent point function). |
+| `q*(p, ..., lower.tail=FALSE)` | `dist.isf(p)` | Upper-tail quantile; inverse survival function. |
+| `r*(n, ...)` | `dist.rvs(size=n, random_state=dist_rng)` | Random draws; define a NumPy generator first. |
+| `d*(x, ..., log=TRUE)` | `dist.logpdf(x)` / `dist.logpmf(x)` | Log density / log mass. |
+| `p*(x, ..., log.p=TRUE)` | `dist.logcdf(x)` | Log lower-tail probability. |
+| `p*(x, ..., lower.tail=FALSE, log.p=TRUE)` | `dist.logsf(x)` | Log upper-tail probability. |
+
+Use `.sf()` instead of `1 - .cdf()` for upper tails, particularly for
+extreme values where subtraction can lose precision. For an
+integer-valued variable, `P(X >= k)` is `dist.sf(k - 1)`, whereas
+`dist.sf(k)` gives `P(X > k)`. For a continuous variable,
+`P(a < X <= b)` is `dist.cdf(b) - dist.cdf(a)`; when both bounds are far
+in the upper tail, subtract survival probabilities instead. R’s
+`q*(..., log.p=TRUE)` has no general direct argument equivalent in these
+SciPy methods; exponentiating a very negative log probability can
+underflow, so do not assume that conversion is numerically safe.
+
+### Common distributions and parameter translations
+
+Each Python expression below creates a configured (“frozen”)
+distribution. Apply any method from the preceding table to it. Names
+such as `mu`, `sigma`, `rate`, and `shape` are placeholders for your
+parameter values; `sigma > 0`.
+
+| Distribution | R family and parameters | SciPy distribution object |
+|----|----|----|
+| Normal | `dnorm/pnorm/qnorm/rnorm`, `mean=mu, sd=sigma` | `stats.norm(loc=mu, scale=sigma)` |
+| Standard normal | Same normal family, defaults | `stats.norm()` |
+| Poisson | `dpois/ppois/qpois/rpois`, `lambda=lam` | `stats.poisson(mu=lam)` |
+| Binomial | `dbinom/pbinom/qbinom/rbinom`, `size=trials, prob=p` | `stats.binom(n=trials, p=p)` |
+| Negative binomial | `dnbinom/pnbinom/qnbinom/rnbinom`, `size=s, prob=p` | `stats.nbinom(n=s, p=p)` |
+| Geometric | `dgeom/pgeom/qgeom/rgeom`, `prob=p` | `stats.geom(p=p, loc=-1)` |
+| Hypergeometric | `dhyper/phyper/qhyper/rhyper`, `m=good, n=bad, k=draws` | `stats.hypergeom(M=good+bad, n=good, N=draws)` |
+| Uniform | `dunif/punif/qunif/runif`, `min=a, max=b` | `stats.uniform(loc=a, scale=b-a)` |
+| Exponential | `dexp/pexp/qexp/rexp`, `rate=rate` | `stats.expon(scale=1/rate)` |
+| Gamma | `dgamma/pgamma/qgamma/rgamma`, `shape=shape, rate=rate` | `stats.gamma(a=shape, scale=1/rate)` |
+| Beta | `dbeta/pbeta/qbeta/rbeta`, `shape1=a, shape2=b` | `stats.beta(a=a, b=b)` |
+| Student’s t (central) | `dt/pt/qt/rt`, `df=v` | `stats.t(df=v)` |
+| Chi-squared (central) | `dchisq/pchisq/qchisq/rchisq`, `df=v` | `stats.chi2(df=v)` |
+| F (central) | `df/pf/qf/rf`, `df1=v1, df2=v2` | `stats.f(dfn=v1, dfd=v2)` |
+| Lognormal | `dlnorm/plnorm/qlnorm/rlnorm`, `meanlog=m, sdlog=s` | `stats.lognorm(s=s, scale=np.exp(m))` |
+| Weibull | `dweibull/pweibull/qweibull/rweibull`, `shape=k, scale=s` | `stats.weibull_min(c=k, scale=s)` |
+
+**Parameter traps:** SciPy’s `scale` is the standard deviation for a
+normal, the reciprocal of `rate` for exponential/gamma distributions,
+and the width `max - min` for a uniform. R’s geometric variable counts
+**failures before the first success** (starts at 0); SciPy’s unshifted
+geometric counts trials (starts at 1), hence `loc=-1`. Both
+negative-binomial families above count failures before the specified
+number of successes. To translate R’s `size=s, mu=m` negative-binomial
+parameterization, use `stats.nbinom(n=s, p=s/(s+m))` for positive `s`
+and `m`. The lognormal parameters describe the underlying normal
+variable, not the mean and standard deviation of the observed positive
+values. Noncentral t, chi-squared, and F distributions require
+`stats.nct`, `stats.ncx2`, and `stats.ncf`, respectively.
+
+### Normal: density, probability, quantiles, and samples
+
+These paired examples use a normal variable with mean 10 and standard
+deviation 2.
+
+``` r
+normal_ref_r <- c(
+  density=dnorm(12, mean=10, sd=2),
+  lower=pnorm(12, mean=10, sd=2),
+  upper=pnorm(12, mean=10, sd=2, lower.tail=FALSE),
+  quantile=qnorm(0.975, mean=10, sd=2)
+)
+normal_ref_r
+```
+
+    ##    density      lower      upper   quantile 
+    ##  0.1209854  0.8413447  0.1586553 13.9199280
+
+``` python
+normal_dist = stats.norm(loc=10, scale=2)
+normal_ref_py = np.array([
+    normal_dist.pdf(12),
+    normal_dist.cdf(12),
+    normal_dist.sf(12),
+    normal_dist.ppf(0.975),
+])
+print(normal_ref_py)  # approximately 0.1210, 0.8413, 0.1587, 13.9199
+```
+
+    ## [ 0.12098536  0.84134475  0.15865525 13.91992797]
+
+``` python
+# Calling the distribution directly is equivalent to using a frozen object.
+print(stats.norm.cdf(12, loc=10, scale=2))
+```
+
+    ## 0.8413447460685429
+
+``` python
+print(normal_dist.ppf([0.025, 0.5, 0.975]))  # vectorized quantiles
+```
+
+    ## [ 6.08007203 10.         13.91992797]
+
+### Poisson: exact counts and inclusive versus strict tails
+
+For a Poisson count with mean 3, distinguish exactly 2, at most 2, more
+than 2, and at least 2 events.
+
+``` r
+poisson_ref_r <- c(
+  exactly_2=dpois(2, lambda=3),
+  at_most_2=ppois(2, lambda=3),
+  more_than_2=ppois(2, lambda=3, lower.tail=FALSE),
+  at_least_2=ppois(1, lambda=3, lower.tail=FALSE),
+  quantile=qpois(0.95, lambda=3)
+)
+poisson_ref_r
+```
+
+    ##   exactly_2   at_most_2 more_than_2  at_least_2    quantile 
+    ##   0.2240418   0.4231901   0.5768099   0.8008517   6.0000000
+
+``` python
+poisson_dist = stats.poisson(mu=3)
+poisson_ref_py = np.array([
+    poisson_dist.pmf(2),
+    poisson_dist.cdf(2),
+    poisson_dist.sf(2),
+    poisson_dist.sf(1),
+    poisson_dist.ppf(0.95),
+])
+print(poisson_ref_py)  # approximately 0.2240, 0.4232, 0.5768, 0.8009, 6
+```
+
+    ## [0.22404181 0.42319008 0.57680992 0.80085173 6.        ]
+
+The discrete quantile here is the smallest integer whose CDF reaches the
+requested probability. At the boundary `p=0`, SciPy’s discrete `.ppf(0)`
+can return one below the lower support (for example, -1 for Poisson),
+whereas R’s `qpois(0, ...)` returns 0; handle endpoint conventions
+explicitly.
+
+``` r
+set.seed(42)
+rnorm(5, mean=10, sd=2)
+```
+
+    ## [1] 12.741917  8.870604 10.726257 11.265725 10.808537
+
+``` r
+rpois(5, lambda=3)
+```
+
+    ## [1] 3 4 6 2 3
+
+``` python
+dist_rng = np.random.default_rng(42)
+print(normal_dist.rvs(size=5, random_state=dist_rng))
+```
+
+    ## [10.60943416  7.92003179 11.50090239 11.88112943  6.09792962]
+
+``` python
+print(poisson_dist.rvs(size=5, random_state=dist_rng))
+```
+
+    ## [4 5 1 7 1]
+
+``` python
+# Reuse the generator so its state advances; the same seed does not match R draws.
+assert np.allclose(normal_ref_py, np.asarray(r.normal_ref_r).ravel())
+assert np.allclose(poisson_ref_py, np.asarray(r.poisson_ref_r).ravel())
+```
+
+SciPy methods accept scalars and compatible arrays; they use NumPy
+broadcasting rather than R’s general vector recycling. See the [SciPy
+continuous distribution
+methods](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.rv_continuous.html),
+[Poisson
+reference](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.poisson.html),
+[gamma
+reference](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.gamma.html),
+and [negative binomial
+reference](https://docs.scipy.org/doc/scipy/reference/generated/scipy.stats.nbinom.html).
+
 ## Basic statistical analyses
 
 ### Welch two-sample t-test
@@ -1445,8 +1657,8 @@ print(fit_py.summary())
     ## Dep. Variable:                    mpg   R-squared:                       0.837
     ## Model:                            OLS   Adj. R-squared:                  0.820
     ## Method:                 Least Squares   F-statistic:                     48.08
-    ## Date:                Sun, 04 Oct 2026   Prob (F-statistic):           3.59e-11
-    ## Time:                        22:10:06   Log-Likelihood:                -73.311
+    ## Date:                Tue, 27 Oct 2026   Prob (F-statistic):           3.59e-11
+    ## Time:                        20:51:16   Log-Likelihood:                -73.311
     ## No. Observations:                  32   AIC:                             154.6
     ## Df Residuals:                      28   BIC:                             160.5
     ## Df Model:                           3                                         
@@ -1538,8 +1750,8 @@ print(logit_py.summary())
     ## Dep. Variable:                     am   No. Observations:                   32
     ## Model:                          Logit   Df Residuals:                       29
     ## Method:                           MLE   Df Model:                            2
-    ## Date:                Sun, 04 Oct 2026   Pseudo R-squ.:                  0.7673
-    ## Time:                        22:10:06   Log-Likelihood:                -5.0296
+    ## Date:                Tue, 27 Oct 2026   Pseudo R-squ.:                  0.7673
+    ## Time:                        20:51:16   Log-Likelihood:                -5.0296
     ## converged:                       True   LL-Null:                       -21.615
     ## Covariance Type:            nonrobust   LLR p-value:                 6.267e-08
     ## ==============================================================================
