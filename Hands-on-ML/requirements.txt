@@ -1,0 +1,11 @@
+# Starter dependencies for my learning notebooks (Python 3.13).
+# Exact versions are intentionally unpinned; save a platform-specific snapshot after setup.
+numpy
+pandas
+scikit-learn
+# Python 3.13 is supported by TensorFlow 2.20 and newer.
+tensorflow>=2.20
+matplotlib
+jupyterlab
+ipykernel
+plotnine
